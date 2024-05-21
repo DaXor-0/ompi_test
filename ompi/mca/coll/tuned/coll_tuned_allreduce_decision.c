@@ -43,6 +43,7 @@ static const mca_base_var_enum_value_t allreduce_algorithms[] = {
     {5, "segmented_ring"},
     {6, "rabenseifner"},
     {7, "allgather_reduce"},
+    {8, "swift allreduce"},
     {0, NULL}
 };
 
@@ -149,6 +150,8 @@ int ompi_coll_tuned_allreduce_intra_do_this(const void *sbuf, void *rbuf, int co
         return ompi_coll_base_allreduce_intra_redscat_allgather(sbuf, rbuf, count, dtype, op, comm, module);
     case (7):
         return ompi_coll_base_allreduce_intra_allgather_reduce(sbuf, rbuf, count, dtype, op, comm, module);
+    case (8):
+        return ompi_coll_base_allreduce_swift(sbuf, rbuf, count, dtype, op, comm, module);
     } /* switch */
     OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:allreduce_intra_do_this attempt to select algorithm %d when only 0-%d is valid?",
                  algorithm, ompi_coll_tuned_forced_max_algorithms[ALLREDUCE]));

@@ -61,7 +61,11 @@ ompi_coll_tuned_allreduce_intra_dec_dynamic (const void *sbuf, void *rbuf, int c
     mca_coll_tuned_module_t *tuned_module = (mca_coll_tuned_module_t*) module;
 
     OPAL_OUTPUT((ompi_coll_tuned_stream, "ompi_coll_tuned_allreduce_intra_dec_dynamic"));
-
+    
+    if (1==1)
+        return ompi_coll_tuned_allreduce_intra_do_this (sbuf, rbuf, count, dtype, op,
+                                                            comm, module,
+                                                            8, faninout, segsize);
     /* Check first if an algorithm is set explicitly for this collective */
     if (tuned_module->user_forced[ALLREDUCE].algorithm) {
         return ompi_coll_tuned_allreduce_intra_do_this(sbuf, rbuf, count, dtype, op, comm, module,
