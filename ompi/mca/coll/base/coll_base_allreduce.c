@@ -1381,9 +1381,9 @@ err_hndl:
 
 
 
-int ompi_coll_base_allreduce_swift(const void *send_buffer, void *recieve_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
+int ompi_coll_base_allreduce_swing(const void *send_buffer, void *recieve_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
   
-  printf("you're running the correct swift algorithm");  
+  printf("you're running the correct swing algorithm");  
 
   int return_value, line, rank, size, adjsize, remote, distance;
   int newrank, newremote, extra_ranks;
