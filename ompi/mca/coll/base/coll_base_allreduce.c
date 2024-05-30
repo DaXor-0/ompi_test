@@ -1400,10 +1400,8 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *recieve_buffer
 
   if (MPI_IN_PLACE == send_buffer) {
     return_value = ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*)recieve_buffer);
-    if (return_value < 0) { line = __LINE__; goto error_hndl; }
   } else {
     return_value = ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*)send_buffer);
-    if (return_value < 0) { line = __LINE__; goto error_hndl; }
   }
 
 
@@ -1428,13 +1426,11 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *recieve_buffer
   if (rank <  (2 * extra_ranks)) {
     if (0 == (rank % 2)) {
       return_value = MCA_PML_CALL(send(tmpsend, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
-      if (MPI_SUCCESS != return_value) { line = __LINE__; goto error_hndl; }
       newrank = -1;
     }
     else
     {
       return_value = MCA_PML_CALL(recv(tmprecv, count, dtype, (rank - 1),MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
-      if (MPI_SUCCESS != return_value) { line = __LINE__; goto error_hndl; }
       /* tmpsend = tmprecv (op) tmpsend */
       ompi_op_reduce(op, tmprecv, tmpsend, count, dtype);
       newrank = rank >> 1;
@@ -1456,7 +1452,6 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *recieve_buffer
 
     /* Exchange the data */
     return_value = ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, remote, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, remote, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
-    if (MPI_SUCCESS != return_value) { line = __LINE__; goto error_hndl; }
 
     /* Apply operation */
     if (rank < remote) {
@@ -1488,7 +1483,6 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *recieve_buffer
   /* Ensure that the final result is in recieve_buffer */
   if (tmpsend != recieve_buffer) {
     return_value = ompi_datatype_copy_content_same_ddt(dtype, count, (char*)recieve_buffer, tmpsend);
-    if (return_value < 0) { line = __LINE__; goto error_hndl; }
   }
 
   if (NULL != inplacebuf_free) free(inplacebuf_free);
