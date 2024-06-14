@@ -90,7 +90,8 @@ mca_coll_han_component_t mca_coll_han_component = {
     /* han-component specific information */
 
     /* (default) priority */
-    .han_priority = 35,
+    // TODO: han priority set to 0 to avoid problems in testing
+    .han_priority = 0,
     /* workaround for nvcc compiler */
     .dynamic_rules_filename = NULL,
 };

@@ -212,6 +212,9 @@ ompi_coll_tuned_allreduce_intra_dec_fixed(const void *sbuf, void *rbuf, int coun
             }
         }
     }
+    
+    // TODO: qui cambio l'algoritmo, per testare swing, va rimesso bene dopo
+    alg = 8;
 
     return ompi_coll_tuned_allreduce_intra_do_this (sbuf, rbuf, count, dtype, op,
                                                     comm, module, alg, 0, 0);
