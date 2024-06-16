@@ -1378,52 +1378,100 @@ err_hndl:
 
 
 
-
-/* copied function (with appropriate renaming) ends here */
-int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
-    int rank, size, remote, distance;
-    char *tmpsend, *tmprecv, *tmpswap;
-    ptrdiff_t span, gap = 0;
-
-    size = ompi_comm_size(comm);
-    rank = ompi_comm_rank(comm);
-
-    if (rank==0) printf("Working on correct algorithm\n");
-    
-    // Allocate and initialize temporary send buffer
-    span = opal_datatype_span(&dtype->super, count, &gap);
-    char *inplacebuf_free = (char*) malloc(span + gap);
-    char *inplacebuf = inplacebuf_free + gap;
-
-    // Copy content from send_buffer to inplacebuf
-    ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*) send_buffer);
-
-    tmpsend = inplacebuf;
-    tmprecv = (char*) receive_buffer;
-
-    // Communication/Computation loop for power-of-two processes
-    for (distance = 1; distance < size; distance <<= 1) {
-        remote = rank ^ distance;
-
-        // Exchange the data
-        ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, remote, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, remote, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
-
-        // Apply operation
-        if (rank < remote) {
-            ompi_op_reduce(op, tmpsend, tmprecv, count, dtype);
-            tmpswap = tmprecv;
-            tmprecv = tmpsend;
-            tmpsend = tmpswap;
-        } else {
-            ompi_op_reduce(op, tmprecv, tmpsend, count, dtype);
-        }
-    }
-
-    // Ensure that the final result is in receive_buffer
-    if (tmpsend != receive_buffer) {
-        ompi_datatype_copy_content_same_ddt(dtype, count, (char*) receive_buffer, tmpsend);
-    }
-
-    free(inplacebuf_free);  // Free the original allocated pointer
-    return MPI_SUCCESS;
+int mylog2(int n) {
+  if (n <= 0) return -1;
+  int log = 0;
+  while (n >> 1) {
+    n >>= 1;
+    log++;
+  }
+    return log;
 }
+
+int int_pow(int base, int exp) {
+  int result = 1;
+  while (exp > 0) {
+    if (exp % 2 == 1) result *= base;
+    base *= base;
+    exp /= 2;
+  }
+  return result;
+}
+
+int rho(int s) {
+  int value = 1 - int_pow(-2, s + 1);
+  return value / 3;
+}
+
+int pi(int r, int s, int p) {
+    int rho_s = rho(s);
+    int result;
+    if (r % 2 == 0) result = (r + rho_s) % p;
+    else            result = (r - rho_s) % p;
+
+    if (result < 0) result += p;
+
+    return result;
+}
+
+// to be used for bandwidth optimal, aka reduce-scatter+allgather on blocks
+void get_indexes(int r, int step, int p, int *blocks){
+  int max_steps = mylog2(p);
+  
+  if (step >= max_steps) return;
+  
+  for (int s = step; s <= max_steps; s++){
+    int peer = pi(r, s, p);
+    blocks[peer] = 1;
+    get_indexes(peer, s+1, p, blocks);
+  }
+}
+
+// For now works only on power of 2 nodes, to adjust for other usecases
+int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
+  int rank, size, remote, distance;
+  char *tmpsend, *tmprecv, *tmpswap;
+  ptrdiff_t span, gap = 0;
+
+  size = ompi_comm_size(comm);
+  rank = ompi_comm_rank(comm);
+
+  if (rank==0) printf("Working on correct algorithm, swing\n");
+  
+  // Allocate and initialize temporary send buffer
+  span = opal_datatype_span(&dtype->super, count, &gap);
+  char *inplacebuf_free = (char*) malloc(span + gap);
+  char *inplacebuf = inplacebuf_free + gap;
+
+  // Copy content from send_buffer to inplacebuf
+  ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*) send_buffer);
+
+  tmpsend = inplacebuf;
+  tmprecv = (char*) receive_buffer;
+  
+  
+  int steps = mylog2(size);
+  int s, dest;
+  for (s = 0; s < steps; s++){
+    dest = pi(rank, s, size);
+
+    ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
+    
+    if (rank < dest) {
+      ompi_op_reduce(op, tmpsend, tmprecv, count, dtype);
+      tmpswap = tmprecv;
+      tmprecv = tmpsend;
+      tmpsend = tmpswap;
+    } else {
+      ompi_op_reduce(op, tmprecv, tmpsend, count, dtype);
+    }
+  }
+
+  if (tmpsend != receive_buffer) {
+    ompi_datatype_copy_content_same_ddt(dtype, count, (char*) receive_buffer, tmpsend);
+  }
+
+  free(inplacebuf_free);  // Free the original allocated pointer
+  return MPI_SUCCESS;
+}
+
