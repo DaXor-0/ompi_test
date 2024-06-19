@@ -1429,14 +1429,14 @@ void get_indexes(int r, int step, int p, int *blocks){
 
 // For now works only on power of 2 nodes, to adjust for other usecases
 int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
-  int rank, size, remote, distance;
+  int rank, size;
   char *tmpsend, *tmprecv, *tmpswap;
   ptrdiff_t span, gap = 0;
 
   size = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
 
-  if (rank==0) printf("Working on correct algorithm, swing\n");
+  if (rank==0) printf("Working on correct algorithm, swing\n NOW ALSO WITH VARIOUS NODE NUMB\n");
   
   // Allocate and initialize temporary send buffer
   span = opal_datatype_span(&dtype->super, count, &gap);
@@ -1449,11 +1449,35 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   tmpsend = inplacebuf;
   tmprecv = (char*) receive_buffer;
   
+  int adjsize, extra_ranks, newrank; // needed to handle not power of 2 cases
   
-  int steps = mylog2(size);
+  //Determine nearest power of two less than or equal to size
+  adjsize = opal_next_poweroftwo (size);
+  adjsize >>= 1;
+  
+  //Number of nodes that exceed max(2^n)< size
+  extra_ranks = size - adjsize;
+  
+  // First part of computation to get a 2^n number of nodes.
+  // Nodes get also renamed to streamline the general computation part
+  if (rank <  (2 * extra_ranks)) {
+    if (0 == (rank % 2)) {
+      MCA_PML_CALL(send(tmpsend, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+      newrank = -1;
+    } else {
+      MCA_PML_CALL(recv(tmprecv, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+      ompi_op_reduce(op, tmprecv, tmpsend, count, dtype);
+      newrank = rank >> 1;
+    }
+  } else {
+    newrank = rank - extra_ranks;
+  }
+  
+  // Actual allreduce computation for general cases
+  int steps = mylog2(adjsize);
   int s, dest;
   for (s = 0; s < steps; s++){
-    dest = pi(rank, s, size);
+    dest = pi(newrank, s, adjsize);
 
     ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
     
@@ -1467,11 +1491,22 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
     }
   }
 
+  // Final results is sent to nodes that are not included in general computation
+  // (general computation loop requires 2^n nodes).
+  if (rank < (2 * extra_ranks)) {
+    if (0 == (rank % 2)) {
+      MCA_PML_CALL(recv(receive_buffer, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+      tmpsend = (char*)receive_buffer;
+    } else {
+      MCA_PML_CALL(send(tmpsend, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+    }
+  }
+
   if (tmpsend != receive_buffer) {
     ompi_datatype_copy_content_same_ddt(dtype, count, (char*) receive_buffer, tmpsend);
   }
 
-  free(inplacebuf_free);  // Free the original allocated pointer
+  free(inplacebuf_free);
   return MPI_SUCCESS;
 }
 
