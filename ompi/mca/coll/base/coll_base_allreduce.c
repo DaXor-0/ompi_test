@@ -1427,16 +1427,25 @@ int pi(int r, int s, int p) {
 //   }
 // }
 
-// For now works only on power of 2 nodes, to adjust for other usecases
 int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
   int rank, size;
+  int ret, line; // for error handling
   char *tmpsend, *tmprecv, *tmpswap;
   ptrdiff_t span, gap = 0;
 
   size = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
 
-  if (rank==0) printf("Swing algorithm is being run\n\n");
+  OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "coll:base:allreduce_swing rank %d", rank));
+
+  // Special case for size == 1
+  if (1 == size) {
+    if (MPI_IN_PLACE != send_buffer) {
+      ret = ompi_datatype_copy_content_same_ddt(dtype, count, (char*)receive_buffer, (char*)send_buffer);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+    }
+    return MPI_SUCCESS;
+  }
   
   // Allocate and initialize temporary send buffer
   span = opal_datatype_span(&dtype->super, count, &gap);
@@ -1444,7 +1453,14 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   char *inplacebuf = inplacebuf_free + gap;
 
   // Copy content from send_buffer to inplacebuf
-  ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*) send_buffer);
+  if (MPI_IN_PLACE == send_buffer) {
+      ret = ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*)receive_buffer);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+  } else {
+      ret = ompi_datatype_copy_content_same_ddt(dtype, count, inplacebuf, (char*)send_buffer);
+      if (ret < 0) { line = __LINE__; goto error_hndl; }
+  }
+
 
   tmpsend = inplacebuf;
   tmprecv = (char*) receive_buffer;
@@ -1469,10 +1485,12 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   // new "cut" topology.
   if (rank <  (2 * extra_ranks)) {
     if (0 == (rank % 2)) {
-      MCA_PML_CALL(send(tmpsend, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+      ret = MCA_PML_CALL(send(tmpsend, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
       loop_flag = 1;
     } else {
-      MCA_PML_CALL(recv(tmprecv, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+      ret = MCA_PML_CALL(recv(tmprecv, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
       ompi_op_reduce(op, tmprecv, tmpsend, count, dtype);
       new_rank = rank >> 1;
     }
@@ -1485,9 +1503,7 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   for (s = 0; s < steps; s++){
     if (loop_flag) break;
     adjdest = is_power_of_two ? pi(rank, s, size) : pi(new_rank, s, adjsize);
-    
-    //dest = is_power_of_two ? adjdest : adjdest < (2*extra_ranks) ? (adjdest << 1) + 1 : adjdest + extra_ranks;
-    
+
     if (is_power_of_two) {
       dest = adjdest;
     } else {
@@ -1498,7 +1514,8 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
       }
     }
 
-    ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
+    ret = ompi_coll_base_sendrecv_actual(tmpsend, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, tmprecv, count, dtype, dest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE);
+    if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
     
     if (rank < dest) {
       ompi_op_reduce(op, tmpsend, tmprecv, count, dtype);
@@ -1513,19 +1530,28 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   // Final results is sent to nodes that are not included in general computation
   // (general computation loop requires 2^n nodes).
   if (rank < (2 * extra_ranks)){
-    if (!loop_flag)
-      MCA_PML_CALL(send(tmpsend, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
-    else {
-      MCA_PML_CALL(recv(receive_buffer, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+    if (!loop_flag){
+      ret = MCA_PML_CALL(send(tmpsend, count, dtype, (rank - 1), MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
+    } else {
+      ret = MCA_PML_CALL(recv(receive_buffer, count, dtype, (rank + 1), MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+      if (MPI_SUCCESS != ret) { line = __LINE__; goto error_hndl; }
       tmpsend = (char*)receive_buffer;
     }
   }
 
   if (tmpsend != receive_buffer) {
-    ompi_datatype_copy_content_same_ddt(dtype, count, (char*) receive_buffer, tmpsend);
+    ret = ompi_datatype_copy_content_same_ddt(dtype, count, (char*) receive_buffer, tmpsend);
+    if (ret < 0) { line = __LINE__; goto error_hndl; }
   }
 
   free(inplacebuf_free);
   return MPI_SUCCESS;
-}
 
+error_hndl:
+    OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "%s:%4d\tRank %d Error occurred %d\n",
+                 __FILE__, line, rank, ret));
+    (void)line;  // silence compiler warning
+    if (NULL != inplacebuf_free) free(inplacebuf_free);
+    return ret;
+}
