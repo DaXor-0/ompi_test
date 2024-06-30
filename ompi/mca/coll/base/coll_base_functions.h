@@ -213,6 +213,7 @@ int ompi_coll_base_allreduce_intra_redscat_allgather(ALLREDUCE_ARGS);
 int ompi_coll_base_allreduce_intra_allgather_reduce(ALLREDUCE_ARGS);
 
 int ompi_coll_base_allreduce_swing(ALLREDUCE_ARGS);
+int ompi_coll_base_allreduce_swing_rabenseifner(ALLREDUCE_ARGS);
 
 /* AlltoAll */
 int ompi_coll_base_alltoall_intra_pairwise(ALLTOALL_ARGS);
