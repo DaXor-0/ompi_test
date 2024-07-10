@@ -1414,18 +1414,6 @@ int pi(int r, int s, int p) {
     return result;
 }
 
-// // to be used for bandwidth optimal, aka reduce-scatter+allgather on blocks
-// void get_indexes(int r, int step, int p, int *blocks){
-//   int max_steps = mylog2(p);
-//   
-//   if (step >= max_steps) return;
-//   
-//   for (int s = step; s <= max_steps; s++){
-//     int peer = pi(r, s, p);
-//     blocks[peer] = 1;
-//     get_indexes(peer, s+1, p, blocks);
-//   }
-// }
 
 int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
   int rank, size;
@@ -1557,84 +1545,148 @@ error_hndl:
 }
 
 
+void get_indexes_aux(int r, int step, int p, unsigned char *bitmap) {
+  int max_steps = mylog2(p);
+  if (step >= max_steps) return;
+
+  for (int s = step; s <= max_steps; s++) {
+    int peer = pi(r, s, p);
+    bitmap[peer / 8] |= (1 << (peer % 8));
+    get_indexes_aux(peer, s + 1, p, bitmap);
+  }
+}
+
+void get_indexes(int r, int step, int p, unsigned char *bitmap) {
+  int max_steps = mylog2(p);
+  if (step >= max_steps) return;
+
+  int peer = pi(r, step, p);
+  bitmap[peer / 8] |= (1 << (peer % 8));
+  get_indexes_aux(peer, step + 1, p, bitmap);
+}
+
+
+int create_custom_datatype(int adj_size, int wsize, unsigned char* bitmap, struct ompi_datatype_t* d_type, struct ompi_datatype_t* new_type){
+  int rc_ci;
+  int* block_lenghts = malloc(wsize * sizeof(int));
+  int* displacements = malloc(wsize * sizeof(int));
+  
+  int index = 0;
+  for (int i = 0; i < adj_size; i++){
+    if (bitmap[i/8] & (1 << (i % 8)) != 0){
+      block_lenghts[index] = chunk_size;
+      displacements[index] = chunk_size * i;
+      index++;
+    }
+  }
+
+  //if (index != wsize) return MPI_Error;
+  // NOTE: snippets taken from /ompi/mpi/c/type_indexed.c
+  rc_ci = ompi_datatype_create_indexed(wsize, block_lengths, displacements, d_type, new_type);
+  if( rc_ci != MPI_SUCCESS ) {
+      ompi_datatype_destroy(new_type);
+      //OMPI_ERRHANDLER_NOHANDLE_RETURN( rc_ci, rc_ci, FUNC_NAME );
+  }
+  {
+    const int* a_i[3] = {&wsize, block_lengths, displacements};
+
+    ompi_datatype_set_args(*new_type, 2 * wsize + 1, a_i, 0, NULL, 1, &d_type, MPI_COMBINER_INDEXED );
+  }
+  
+  ompi_datatype_commit( new_type);
+
+  free(block_lenghts);
+  free(displacements);
+
+  return MPI_SUCCESS;
+}
+
+
 int ompi_coll_base_allreduce_swing_rabenseifner(
     const void *send_buffer, void *receive_buffer, int count, struct ompi_datatype_t *dtype,
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-    int comm_size = ompi_comm_size(comm);
-    int rank = ompi_comm_rank(comm);
+  int comm_size = ompi_comm_size(comm);
+  int rank = ompi_comm_rank(comm);
 
-    int nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
-    int nprocs_pof2 = 1 << nsteps;
+  int nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
+  int nprocs_pof2 = 1 << nsteps;
 
-    ptrdiff_t lb, extent, gap = 0;
-    ompi_datatype_get_extent(dtype, &lb, &extent);
+  ptrdiff_t lb, extent, gap = 0;
+  ompi_datatype_get_extent(dtype, &lb, &extent);
 
-    ptrdiff_t dsize = opal_datatype_span(&dtype->super, count, &gap);
-    char *tmp_buf_raw = (char *)malloc(dsize);
-    char *tmp_buf = tmp_buf_raw - gap;
+  ptrdiff_t dsize = opal_datatype_span(&dtype->super, count, &gap);
+  char *tmp_buf_raw = (char *)malloc(dsize);
+  char *tmp_buf = tmp_buf_raw - gap;
 
-    if (send_buffer != MPI_IN_PLACE) {
-        ompi_datatype_copy_content_same_ddt(dtype, count, (char *)receive_buffer, (char *)send_buffer);
-    }
+  if (send_buffer != MPI_IN_PLACE) {
+    ompi_datatype_copy_content_same_ddt(dtype, count, (char *)receive_buffer, (char *)send_buffer);
+  }
+  
+  // WARNING: assume comm_size is a power of 2
+  int adj_size = comm_size;
+  int vrank = rank;
+  
+  int step;
+
+  // WARNING: you are assuming count % comm_sz == 0
+  int wsize = count;
+
+  struct ompi_datatype_t t_recv;
+  struct ompi_datatype_t t_send;
+
+  int bitmap_size = (adj_size + 7) / 8;
+  unsigned char *send_bitmap = calloc(bitmap_size, sizeof(unsigned char));
+  unsigned char *recv_bitmap = calloc(bitmap_size, sizeof(unsigned char));
+
+  // Reduce-Scatter phase
+  for (step = 0; step < nsteps; step++) {
     
-    // WARNING: assume comm_size is a power of 2
-    int vrank = rank;
+    // WARNING: you are assuming count % comm_sz == 0
+    wsize /= 2;
+
+    int vdest = pi(vrank, step, comm_size);
     
-    int step = 0, wsize = count;
-    int *rindex = malloc(sizeof(*rindex) * nsteps);
-    int *sindex = malloc(sizeof(*sindex) * nsteps);
-    int *rcount = malloc(sizeof(*rcount) * nsteps);
-    int *scount = malloc(sizeof(*scount) * nsteps);
+    get_indexes(vrank, step, adj_size, send_bitmap);
+    get_indexes(vdest, step, adj_size, recv_bitmap);
 
-    sindex[0] = rindex[0] = 0;
+    create_custom_datatype(adj_size, wsize, recv_bitmap, &dtype, &t_recv);   
+    create_custom_datatype(adj_size, wsize, send_bitmap, &dtype, &t_send);   
 
-    // Reduce-Scatter phase
-    for (int mask = 1; mask < nprocs_pof2; mask <<= 1) {
-        int vdest = vrank ^ mask;
 
-        if (vrank < vdest) {
-            rcount[step] = wsize / 2;
-            scount[step] = wsize - rcount[step];
-            sindex[step] = rindex[step] + rcount[step];
-        } else {
-            scount[step] = wsize / 2;
-            rcount[step] = wsize - scount[step];
-            rindex[step] = sindex[step] + scount[step];
-        }
+    MCA_PML_CALL(send(send_buffer, 1, &t_send, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+    MCA_PML_CALL(recv(tmp_buf, 1, &t_recv, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
+    ompi_op_reduce(op, tmp_buf, send_buffer, wsize, dtype);
+    
+    memset(send_bitmap, 0, bitmap_size);
+    memset(recv_bitmap, 0, bitmap_size);
+    
+    // NOTE: snippets taken from ompi/mpi/c/type_free.c
+    ompi_datatype_destroy(&t_recv);
+    t_recv = MPI_DATATYPE_NULL;
+    ompi_datatype_destroy(&t_send);
+    t_send = MPI_DATATYPE_NULL;
+  }
 
-        ompi_coll_base_sendrecv((char *)receive_buffer + (ptrdiff_t)sindex[step] * extent, scount[step], dtype, vdest,
-                                MCA_COLL_BASE_TAG_ALLREDUCE, (char *)tmp_buf + (ptrdiff_t)rindex[step] * extent,
-                                rcount[step], dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
-        ompi_op_reduce(op, (char *)tmp_buf + (ptrdiff_t)rindex[step] * extent,
-                       (char *)receive_buffer + (ptrdiff_t)rindex[step] * extent, rcount[step], dtype);
+  //step = nsteps - 1;
 
-        if (step + 1 < nsteps) {
-            rindex[step + 1] = rindex[step];
-            sindex[step + 1] = rindex[step];
-            wsize = rcount[step];
-            step++;
-        }
-    }
+  /* // Allgather phase
+  for (int mask = nprocs_pof2 >> 1; mask > 0; mask >>= 1) {
+    int vdest = vrank ^ mask;
 
-    step = nsteps - 1;
+    ompi_coll_base_sendrecv((char *)receive_buffer + (ptrdiff_t)rindex[step] * extent, rcount[step], dtype, vdest,
+                            MCA_COLL_BASE_TAG_ALLREDUCE, (char *)receive_buffer + (ptrdiff_t)sindex[step] * extent,
+                            scount[step], dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    step--;
+  } */
+  
+  free(send_bitmap);
+  free(recv_bitmap);
+  free(tmp_buf_raw);
 
-    // Allgather phase
-    for (int mask = nprocs_pof2 >> 1; mask > 0; mask >>= 1) {
-        int vdest = vrank ^ mask;
-
-        ompi_coll_base_sendrecv((char *)receive_buffer + (ptrdiff_t)rindex[step] * extent, rcount[step], dtype, vdest,
-                                MCA_COLL_BASE_TAG_ALLREDUCE, (char *)receive_buffer + (ptrdiff_t)sindex[step] * extent,
-                                scount[step], dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
-        step--;
-    }
-
-    free(tmp_buf_raw);
-    free(rindex);
-    free(sindex);
-    free(rcount);
-    free(scount);
-
-    return MPI_SUCCESS;
+  return MPI_SUCCESS;
 }
+
+
+
