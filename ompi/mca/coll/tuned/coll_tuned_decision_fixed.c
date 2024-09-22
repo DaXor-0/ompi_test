@@ -65,6 +65,11 @@ ompi_coll_tuned_allreduce_intra_dec_fixed(const void *sbuf, void *rbuf, size_t c
 
     ompi_datatype_type_size(dtype, &dsize);
     total_dsize = dsize * (ptrdiff_t)count;
+    
+    //WARNING: forced path
+    if (1 == 1){
+      return ompi_coll_tuned_allreduce_intra_do_this (sbuf, rbuf, count, dtype, op, comm, module, alg, 0, 0);
+    }
 
     /** Algorithms:
      *  {1, "basic_linear"},
