@@ -1513,15 +1513,15 @@ error_hndl:
 }
 
 
-void my_reduce(/* ompi_op_t* op, */ const void *source, void *target, int wsize, int* r_block_lengths, int* r_displacements){
-  int *i_source = (int*) source;
-  int *i_target = (int*) target;
-  for (int chunk = 0; chunk < wsize; chunk++){
-    for (int i = r_displacements[chunk]; i < r_block_lengths[chunk]; i++){
-      i_target[i] += i_source[i];
-    }
-  }
-}
+// void my_reduce(/* ompi_op_t* op, */ const void *source, void *target, int wsize, int* r_block_lengths, int* r_displacements){
+//   int *i_source = (int*) source;
+//   int *i_target = (int*) target;
+//   for (int chunk = 0; chunk < wsize; chunk++){
+//     for (int i = r_displacements[chunk]; i < r_block_lengths[chunk]; i++){
+//       i_target[i] += i_source[i];
+//     }
+//   }
+// }
 
 void get_indexes_aux(int r, int step, int p, unsigned int *blocks){
   int max_steps = mylog2(p);
@@ -1651,7 +1651,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
       }
     }
 
-    my_reduce(/* op, */ (int*) tmp_buf, (int*) receive_buffer, wsize, r_block_lengths, r_displacements);
+    //my_reduce(/* op, */ (int*) tmp_buf, (int*) receive_buffer, wsize, r_block_lengths, r_displacements);
 
     memset(send_bitmap, 0, adj_size * sizeof(unsigned int));
     memset(recv_bitmap, 0, adj_size * sizeof(unsigned int));
@@ -1713,22 +1713,24 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   return MPI_SUCCESS;
 }
 
-void copy_chunks(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t chunk_size, struct ompi_datatype_t *dtype) {
-  size_t el_size, real_chunk_size, target_offset = 0;
+void copy_chunks(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype) {
+  size_t el_size, chunk_size, chunk_offset = 0, target_offset = 0;
   ompi_datatype_type_size(dtype, &el_size);
-  real_chunk_size = chunk_size * el_size;
 
   for (int i = 0; i < adj_size; i++) {
+    chunk_size = chunk_sizes[i] * el_size;
     if (bitmap[i] == 1) {
-      size_t chunk_offset = i * real_chunk_size;
-      memcpy(target + target_offset, source + chunk_offset, real_chunk_size);
-      target_offset += real_chunk_size;
+      memcpy(target + target_offset, source + chunk_offset, chunk_size);
+      target_offset += chunk_size;
     }
+    chunk_offset += chunk_size;
   }
 }
 
-void my_reduce2(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t chunk_size, struct ompi_datatype_t *dtype){
+void my_reduce(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype){
+  
   //WARNING: here only to silent compiler warning
+  
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
   
@@ -1739,17 +1741,19 @@ void my_reduce2(const void *source, void *target, const unsigned int *bitmap, in
 
   for(int chunk = 0; chunk < adj_size; chunk++){
     if (bitmap[chunk] != 0){
-      for (int el = 0; el < chunk_size; el++){
+      for (int el = 0; el < chunk_sizes[chunk]; el++){
         c_target[offset + el] += c_source[i];
         i++;
       }
     }
-    offset += chunk_size;
+    offset += chunk_sizes[chunk];
   }
 }
 
-void my_overwrite2(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t chunk_size, struct ompi_datatype_t *dtype){
+void my_overwrite(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype){
+  
   //WARNING: here only to silent compiler warning
+  
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
   
@@ -1760,12 +1764,12 @@ void my_overwrite2(const void *source, void *target, const unsigned int *bitmap,
 
   for(int chunk = 0; chunk < adj_size; chunk++){
     if (bitmap[chunk] != 0){
-      for (int el = 0; el < chunk_size; el++){
+      for (int el = 0; el < chunk_sizes[chunk]; el++){
         c_target[offset + el] = c_source[i];
         i++;
       }
     }
-    offset += chunk_size;
+    offset += chunk_sizes[chunk];
   }
 }
 
@@ -1799,65 +1803,70 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   
   // WARNING: assume comm_size is a power of 2
   int adj_size = comm_size;
-  int vrank = rank;
-  
+  int vdest, vrank = rank;
+  size_t w_size = adj_size;
   int step;
 
-  // WARNING: you are assuming count % comm_sz == 0
-  size_t w_size = comm_size;
-  size_t chunk_size = count / comm_size;
-  
+
+  size_t send_dimension, recv_dimension;
+
+  size_t *chunk_sizes = (size_t *) malloc(adj_size * sizeof(size_t));
+  size_t remainder = count % adj_size;
+  size_t small_chunk = count / adj_size;
+  for (int chunk = 0; chunk < adj_size; chunk++){
+    chunk_sizes[chunk] = (chunk < remainder) ? small_chunk + 1 : small_chunk;
+  }
+
   unsigned int *send_bitmap = calloc(adj_size, sizeof(unsigned int));
   unsigned int *recv_bitmap = calloc(adj_size, sizeof(unsigned int));
   
   // Reduce-Scatter phase
   for (step = 0; step < nsteps; step++) {
-    
-    // WARNING: you are assuming count % comm_sz == 0
     w_size /= 2;
 
-    int vdest = pi(vrank, step, adj_size);
+    vdest = pi(vrank, step, adj_size);
     
     get_indexes(vrank, step, adj_size, send_bitmap);
     get_indexes(vdest, step, adj_size, recv_bitmap);
-    copy_chunks(receive_buffer, cp_buf, send_bitmap, adj_size, chunk_size, dtype);
-
-    size_t send_dimension = w_size * chunk_size;
+    
+    copy_chunks(receive_buffer, cp_buf, send_bitmap, adj_size, chunk_sizes, dtype);   
+    
+    send_dimension = 0;
+    recv_dimension = 0;
+    for(int i = 0; i < adj_size; i++){
+      if(send_bitmap[i] != 0) send_dimension += chunk_sizes[i];
+      if(recv_bitmap[i] != 0) recv_dimension += chunk_sizes[i];
+    }
+    
     MCA_PML_CALL(send(cp_buf, send_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
-    MCA_PML_CALL(recv(tmp_buf, send_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
-    
-    // if (rank ==0){
-    //   printf("\n\nSTEP %d\n", step);
-    //   int* debug_pointer = (int *)tmp_buf;
-    //   int i = 0;
-    //   for (size_t chunk = 0; chunk < w_size; chunk++){
-    //     for (size_t el = 0; el < chunk_size; el++){
-    //       printf("%d:%d\t", i, debug_pointer[i]);
-    //       i++;
-    //     }
-    //   }
-    // }
-    
-    my_reduce2(tmp_buf, receive_buffer, recv_bitmap, adj_size, chunk_size, dtype);
+    MCA_PML_CALL(recv(tmp_buf, recv_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
 
+    my_reduce(tmp_buf, receive_buffer, recv_bitmap, adj_size, chunk_sizes, dtype);
+    
     memset(send_bitmap, 0, adj_size * sizeof(unsigned int));
     memset(recv_bitmap, 0, adj_size * sizeof(unsigned int));
   }
 
   // Allgather phase
   for(step = nsteps - 1; step >= 0; step--) {
-    // WARNING: you are assuming count % comm_sz == 0
-    int vdest = pi(vrank, step, adj_size);
+    vdest = pi(vrank, step, adj_size);
     
     get_indexes(vrank, step, adj_size, send_bitmap);
     get_indexes(vdest, step, adj_size, recv_bitmap);
-    copy_chunks(receive_buffer, cp_buf, recv_bitmap, adj_size, chunk_size, dtype);
 
-    size_t send_dimension = w_size * chunk_size;
-    MCA_PML_CALL(send(cp_buf, send_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
+    copy_chunks(receive_buffer, cp_buf, recv_bitmap, adj_size, chunk_sizes, dtype);   
+    
+    send_dimension = 0;
+    recv_dimension = 0;
+    for(int i = 0; i < adj_size; i++){
+      if(send_bitmap[i] != 0) send_dimension += chunk_sizes[i];
+      if(recv_bitmap[i] != 0) recv_dimension += chunk_sizes[i];
+    }
+    
+    MCA_PML_CALL(send(cp_buf, recv_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, MCA_PML_BASE_SEND_STANDARD, comm));
     MCA_PML_CALL(recv(tmp_buf, send_dimension, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE));
     
-    my_overwrite2(tmp_buf, receive_buffer, send_bitmap, adj_size, chunk_size, dtype);
+    my_overwrite(tmp_buf, receive_buffer, send_bitmap, adj_size, chunk_sizes, dtype);
 
     memset(send_bitmap, 0, adj_size * sizeof(unsigned int));
     memset(recv_bitmap, 0, adj_size * sizeof(unsigned int));
@@ -1870,6 +1879,8 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
 
   free(tmp_buf_raw);
   free(cp_buf_raw);
+
+  free(chunk_sizes);
 
   return MPI_SUCCESS;
 }
