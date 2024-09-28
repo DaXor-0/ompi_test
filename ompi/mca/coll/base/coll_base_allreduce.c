@@ -140,8 +140,6 @@ ompi_coll_base_allreduce_intra_recursivedoubling(const void *sbuf, void *rbuf,
                                                   struct ompi_communicator_t *comm,
                                                   mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA RECURSIVE DOUBLING\n\n");
-    fflush(stdout);
     int ret, line, rank, size, adjsize, remote, distance;
     int newrank, newremote, extra_ranks;
     char *tmpsend = NULL, *tmprecv = NULL, *tmpswap = NULL, *inplacebuf_free = NULL, *inplacebuf;
@@ -352,9 +350,6 @@ ompi_coll_base_allreduce_intra_ring(const void *sbuf, void *rbuf, size_t count,
                                      struct ompi_communicator_t *comm,
                                      mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA RING\n\n");
-    fflush(stdout);
-    
   int ret, line, rank, size, k, recv_from, send_to, block_count, inbi;
     int early_segcount, late_segcount, split_rank, max_segcount;
     size_t typelng;
@@ -633,8 +628,6 @@ ompi_coll_base_allreduce_intra_ring_segmented(const void *sbuf, void *rbuf, size
                                                mca_coll_base_module_t *module,
                                                uint32_t segsize)
 {
-    printf("\n\nINTRA RING SEGMENTED\n\n");
-    fflush(stdout);
     int ret, line, rank, size, k, recv_from, send_to;
     int early_blockcount, late_blockcount, split_rank;
     int num_phases, phase, block_count, inbi;
@@ -897,8 +890,6 @@ ompi_coll_base_allreduce_intra_basic_linear(const void *sbuf, void *rbuf, size_t
                                              struct ompi_communicator_t *comm,
                                              mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA BASIC LINEAR\n\n");
-    fflush(stdout);
     int err, rank;
 
     rank = ompi_comm_rank(comm);
@@ -987,8 +978,6 @@ int ompi_coll_base_allreduce_intra_redscat_allgather(
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA REDSCAT ALLGATHER\n\n");
-    fflush(stdout);
     int *rindex = NULL, *rcount = NULL, *sindex = NULL, *scount = NULL;
 
     int comm_size = ompi_comm_size(comm);
@@ -1283,8 +1272,6 @@ int ompi_coll_base_allreduce_intra_allgather_reduce(const void *sbuf, void *rbuf
                                                     struct ompi_communicator_t *comm,
                                                     mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA ALLGATHER REDUCE\n\n");
-    fflush(stdout);
     int line = -1;
     char *partial_buf = NULL;
     char *partial_buf_start = NULL;
@@ -1398,8 +1385,6 @@ int pi(int r, int s, int p) {
 
 
 int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, size_t count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
-  printf("\n\nSWING LATENCY OPTIMAL\n\n");
-  fflush(stdout);
   int rank, size;
   int ret, line; // for error handling
   char *tmpsend, *tmprecv, *tmpswap, *inplacebuf_free = NULL;
@@ -1408,6 +1393,11 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
 
   size = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
+
+  if (rank == 0){
+    printf("SWING LATENCY OPTIMAL\n\n");
+    fflush(stdout);
+  }
 
   OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "coll:base:allreduce_swing rank %d", rank));
 
@@ -1598,10 +1588,13 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-  printf("\n\nSWING RABENSEIFNER CUSTOM DT\n\n");
-  fflush(stdout);
   int comm_size = ompi_comm_size(comm);
   int rank = ompi_comm_rank(comm);
+
+  if (rank == 0) {
+    printf("SWING RABENSEIFNER CUSTOM DT\n\n");
+    fflush(stdout);
+  }
 
   int nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
   // WARNING: to be added after
@@ -1732,59 +1725,48 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   return MPI_SUCCESS;
 }
 
-void copy_chunks(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype) {
-  size_t el_size, chunk_size, chunk_offset = 0, target_offset = 0;
+void copy_chunks(const void *source, void *target, const unsigned int *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype) {
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
+  size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
 
-  for (int i = 0; i < adj_size; i++) {
-    chunk_size = chunk_sizes[i] * el_size;
-    if (bitmap[i] == 1) {
-      memcpy(target + target_offset, source + chunk_offset, chunk_size);
-      target_offset += chunk_size;
+  for (int chunk = 0; chunk < adj_size; chunk++) {
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0) {
+      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
+      t_offset += chunk_size_actual;
     }
-    chunk_offset += chunk_size;
+    s_offset += chunk_size_actual;
   }
 }
 
-void my_reduce(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype){
-  //WARNING: here only to silent compiler warning
+void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned int *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
-  int *c_source = (int *) source;
-  int *c_target = (int *) target;
-  int i = 0;
-  int offset = 0;
 
   for(int chunk = 0; chunk < adj_size; chunk++){
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
     if (bitmap[chunk] != 0){
-      for (int el = 0; el < chunk_sizes[chunk]; el++){
-        c_target[offset + el] += c_source[i];
-        i++;
-      }
+      ompi_op_reduce(op, source + s_offset, target + t_offset, chunk_sizes[chunk], dtype);
+      s_offset += chunk_size_actual;
     }
-    offset += chunk_sizes[chunk];
+    t_offset += chunk_size_actual;
   }
 }
 
-void my_overwrite(const void *source, void *target, const unsigned int *bitmap, int adj_size, size_t *chunk_sizes, struct ompi_datatype_t *dtype){
-  //WARNING: here only to silent compiler warning
-  
+void my_overwrite(const void *source, void *target, const unsigned int *bitmap, int adj_size, const size_t *chunk_sizes, struct ompi_datatype_t *dtype){
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
-  
-  int *c_source = (int *) source;
-  int *c_target = (int *) target;
-  int i = 0;
-  int offset = 0;
 
   for(int chunk = 0; chunk < adj_size; chunk++){
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
     if (bitmap[chunk] != 0){
-      for (int el = 0; el < chunk_sizes[chunk]; el++){
-        c_target[offset + el] = c_source[i];
-        i++;
-      }
+      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
+      s_offset += chunk_size_actual;
     }
-    offset += chunk_sizes[chunk];
+    t_offset += chunk_size_actual;
   }
 }
 
@@ -1794,11 +1776,13 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-  printf("\n\nSWING RABENSEIFNER MEMCPY\n\n");
-  fflush(stdout);
-
   int comm_size = ompi_comm_size(comm);
   int rank = ompi_comm_rank(comm);
+  
+  if (rank == 0) {
+    printf("SWING RABENSEIFNER MEMCPY\n\n");
+    fflush(stdout);
+  }
 
   int nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
   int err = MPI_SUCCESS;
@@ -1806,24 +1790,25 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   //
   //int nprocs_pof2 = 1 << nsteps;
   
-  ptrdiff_t lb, extent, gap = 0;
+  ptrdiff_t lb, extent, gap = 0, buf_size;
   ompi_datatype_get_extent(dtype, &lb, &extent);
-
-  ptrdiff_t dsize = opal_datatype_span(&dtype->super, count, &gap);
-  char *tmp_buf_raw = (char *)malloc(dsize);
+  
+  
+  // Find the biggest power-of-two smaller than count to allocate as few memory as necessary for buffers
+  size_t buf_count = (size_t) (opal_next_poweroftwo_inclusive(count) >> 1);
+  buf_size = opal_datatype_span(&dtype->super, buf_count, &gap);
+  
+  // Target buffer for send operations and source buffer for reduce and overwrite operations
+  char *tmp_buf_raw = (char *)malloc(buf_size);
   char *tmp_buf = tmp_buf_raw - gap;
 
-  char *cp_buf_raw = (char *)malloc(dsize);
+  // Target buffer for copy operations and source buffer for send operations
+  char *cp_buf_raw = (char *)malloc(buf_size);
   char *cp_buf = cp_buf_raw - gap;
   
-  // printf("\n\nentering preliminary copy RANK %d\n\n", rank);
-  // fflush(stdout);
   if (send_buffer != MPI_IN_PLACE) {
     ompi_datatype_copy_content_same_ddt(dtype, count, (char *)receive_buffer, (char *)send_buffer);
   }
-  
-  // printf("\n\nPRELIMINARY COPY DONE RANK %d\n\n", rank);
-  // fflush(stdout);
   
   // WARNING: assume comm_size is a power of 2
   int adj_size = comm_size;
@@ -1853,12 +1838,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     get_indexes(vrank, step, adj_size, send_bitmap);
     get_indexes(vdest, step, adj_size, recv_bitmap);
     
-    // printf("entering in copy: RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
     copy_chunks(receive_buffer, cp_buf, send_bitmap, adj_size, chunk_sizes, dtype);   
-
-    // printf("REDUCESCATTER copy done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
 
     send_count = 0;
     recv_count = 0;
@@ -1866,31 +1846,15 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
       if(send_bitmap[i] != 0) send_count += chunk_sizes[i];
       if(recv_bitmap[i] != 0) recv_count += chunk_sizes[i];
     }
-    
-    // for(int r = 0; r < adj_size; r++){
-    //   if (r == rank){
-    //     printf("%d\t%d\t%d\t%lu\t%lu\n", step, rank, vdest, send_count, recv_count);
-    //     fflush(stdout);
-    //   }
-    // }
 
     err = ompi_coll_base_sendrecv(cp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    // printf("REDUCESCATTER sendrecv done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
-
-    my_reduce(tmp_buf, receive_buffer, recv_bitmap, adj_size, chunk_sizes, dtype);
-    
-    // printf("REDUCESCATTER my_reduce done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
+    my_reduce(op, tmp_buf, receive_buffer, recv_bitmap, adj_size, chunk_sizes, dtype);
 
     memset(send_bitmap, 0, adj_size * sizeof(unsigned int));
     memset(recv_bitmap, 0, adj_size * sizeof(unsigned int));
   }
 
-
-  // printf("\n\nREDUCESCATTER FINISHED RANK %d\n\n", rank);
-  // fflush(stdout);
 
   // Allgather phase
   for(step = nsteps - 1; step >= 0; step--) {
@@ -1901,9 +1865,6 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
 
     copy_chunks(receive_buffer, cp_buf, recv_bitmap, adj_size, chunk_sizes, dtype);   
     
-    // printf("ALLGATHER copy done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
-    
     send_count = 0;
     recv_count = 0;
     for(int i = 0; i < adj_size; i++){
@@ -1913,24 +1874,14 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     
     err = ompi_coll_base_sendrecv(cp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    // printf("ALLGATHER sendrcv done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
-    
     my_overwrite(tmp_buf, receive_buffer, send_bitmap, adj_size, chunk_sizes, dtype);
 
-    // printf("ALLGATHER my_overwrite done RANK %d STEP %d\n", rank, step);
-    // fflush(stdout);
-    
     memset(send_bitmap, 0, adj_size * sizeof(unsigned int));
     memset(recv_bitmap, 0, adj_size * sizeof(unsigned int));
     
     w_size *= 2;
   }
-
-
-  // printf("\n\nALLGATHER FINISHED RANK %d\n\n", rank);
-  // fflush(stdout);
-  
+ 
   free(send_bitmap);
   free(recv_bitmap);
 

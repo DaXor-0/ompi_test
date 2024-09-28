@@ -43,6 +43,9 @@ static const mca_base_var_enum_value_t allreduce_algorithms[] = {
     {5, "segmented_ring"},
     {6, "rabenseifner"},
     {7, "allgather_reduce"},
+    {8, "swing"},
+    {9, "swing_rabenseifner_dt"},
+    {10, "swing_rabenseifner_memcpy"},
     {0, NULL}
 };
 
@@ -131,11 +134,6 @@ int ompi_coll_tuned_allreduce_intra_do_this(const void *sbuf, void *rbuf, size_t
 {
     OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:allreduce_intra_do_this algorithm %d topo fan in/out %d segsize %d",
                  algorithm, faninout, segsize));
-    
-    // //WARNING: forced path
-    // if (1==1){
-    //   return ompi_coll_base_allreduce_swing_rabenseifner_memcpy(sbuf, rbuf, count, dtype, op, comm, module);
-    // }
 
     switch (algorithm) {
     case (0):

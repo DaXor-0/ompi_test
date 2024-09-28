@@ -66,11 +66,6 @@ ompi_coll_tuned_allreduce_intra_dec_fixed(const void *sbuf, void *rbuf, size_t c
     ompi_datatype_type_size(dtype, &dsize);
     total_dsize = dsize * (ptrdiff_t)count;
     
-    // //WARNING: forced path
-    // if (1 == 1){
-    //   return ompi_coll_tuned_allreduce_intra_do_this (sbuf, rbuf, count, dtype, op, comm, module, alg, 0, 0);
-    // }
-
     /** Algorithms:
      *  {1, "basic_linear"},
      *  {2, "nonoverlapping"},
@@ -78,7 +73,11 @@ ompi_coll_tuned_allreduce_intra_dec_fixed(const void *sbuf, void *rbuf, size_t c
      *  {4, "ring"},
      *  {5, "segmented_ring"},
      *  {6, "rabenseifner"
-     *
+     *  {7, "allgather_reduce"},
+     *  {8, "swing"},
+     *  {9, "swing_rabenseifner_dt"},
+     *  {10, "swing_rabenseifner_memcpy"},
+     *  {0, NULL}
      * Currently, ring, segmented ring, and rabenseifner do not support
      * non-commutative operations.
      */
