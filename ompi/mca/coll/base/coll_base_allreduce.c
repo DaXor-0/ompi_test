@@ -1411,8 +1411,11 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   int adjsize, extra_ranks, new_rank = rank, loop_flag = 0; // needed to handle not power of 2 cases
 
   //Determine nearest power of two less than or equal to size
-  adjsize = opal_next_poweroftwo (size);
-  adjsize >>= 1;
+  int steps = opal_hibit(size, comm->c_cube_dim + 1);
+  if (-1 == steps) {
+    return MPI_ERR_ARG;
+  }
+  adjsize = 1 << steps;
 
   //Number of nodes that exceed max(2^n)< size
   extra_ranks = size - adjsize;
@@ -1441,10 +1444,6 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   
   
   // Actual allreduce computation for general cases
-  int steps = opal_hibit(size, comm->c_cube_dim + 1);
-  if (-1 == steps) {
-    return MPI_ERR_ARG;
-  }
   int s, vdest, dest;
   for (s = 0; s < steps; s++){
     if (loop_flag) break;
