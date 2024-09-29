@@ -1408,7 +1408,7 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   tmpsend = inplacebuf;
   tmprecv = (char*) receive_buffer;
   
-  int adjsize, extra_ranks, new_rank = -1, loop_flag = 0; // needed to handle not power of 2 cases
+  int adjsize, extra_ranks, new_rank = rank, loop_flag = 0; // needed to handle not power of 2 cases
 
   //Determine nearest power of two less than or equal to size
   adjsize = opal_next_poweroftwo (size);
@@ -1448,7 +1448,7 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   int s, vdest, dest;
   for (s = 0; s < steps; s++){
     if (loop_flag) break;
-    vdest = is_power_of_two ? pi(rank, s, size) : pi(new_rank, s, adjsize);
+    vdest = pi(new_rank, s, adjsize);
 
     if (is_power_of_two) {
       dest = vdest;
@@ -1750,57 +1750,62 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-  int comm_size = ompi_comm_size(comm);
-  int rank = ompi_comm_rank(comm);
+  int comm_size, rank, adj_size, vrank, vdest;
+  int step, nsteps, err, max_bit_pos, n_pow;
+  
+  size_t buf_count, w_size, send_count, recv_count;
+  size_t *chunk_sizes, small_chunk_size, remainder;
+
+  char *tmp_buf_raw, *tmp_buf, *cp_buf_raw, *cp_buf;
+  
+  ptrdiff_t lb, extent, gap = 0, buf_size;
+  
+  comm_size = ompi_comm_size(comm);
+  rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
     printf("SWING RABENSEIFNER MEMCPY\n");
     fflush(stdout);
   }
 
-  int nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
-  int err = MPI_SUCCESS;
-  // WARNING: to be added after
-  //
-  //int nprocs_pof2 = 1 << nsteps;
+  // Find number of steps of scatter-reduce and allgather,
+  // biggest power of two smaller or equal to comm_sz,
+  // size of send_window (number of chunks to send/recv at each step)
+  // and alias of the rank to be used if comm_sz != adj_size
+  nsteps = opal_hibit(comm_size, comm->c_cube_dim + 1);
+  adj_size = 1 << nsteps;
+  w_size = adj_size;
+  //WARNING: Assuming comm_sz is a pow of 2
+  vrank = rank;
   
-  ptrdiff_t lb, extent, gap = 0, buf_size;
+  err = MPI_SUCCESS;
+
   ompi_datatype_get_extent(dtype, &lb, &extent);
   
-  
-  // Find the biggest power-of-two smaller than count to allocate as few memory as necessary for buffers
-  int max_bit_pos = (int)(sizeof(size_t) * CHAR_BIT) - 1;
-  int hibit = opal_hibit(count, max_bit_pos);
-  size_t buf_count = 1 << hibit;
-  //size_t buf_count = (size_t) (opal_next_poweroftwo_inclusive(count) >> 1);
-  buf_size = opal_datatype_span(&dtype->super, buf_count, &gap);
-  
-  // Target buffer for send operations and source buffer for reduce and overwrite operations
-  char *tmp_buf_raw = (char *)malloc(buf_size);
-  char *tmp_buf = tmp_buf_raw - gap;
-
-  // Target buffer for copy operations and source buffer for send operations
-  char *cp_buf_raw = (char *)malloc(buf_size);
-  char *cp_buf = cp_buf_raw - gap;
-  
-  if (send_buffer != MPI_IN_PLACE) {
-    ompi_datatype_copy_content_same_ddt(dtype, count, (char *)receive_buffer, (char *)send_buffer);
+  chunk_sizes = (size_t *) malloc(adj_size * sizeof(size_t));
+  small_chunk_size = count / w_size;
+  remainder = count % w_size; 
+  for (size_t chunk = 0; chunk < w_size; chunk++){
+    chunk_sizes[chunk] = (chunk < remainder) ? small_chunk_size + 1 : small_chunk_size;
   }
   
-  // WARNING: assume comm_size is a power of 2
-  int adj_size = comm_size;
-  int vdest, vrank = rank;
-  size_t w_size = adj_size;
-  int step;
+  // Find the biggest power-of-two smaller than count to allocate as few memory as necessary for buffers
+  max_bit_pos = (sizeof(size_t) * CHAR_BIT) - 1;
+  n_pow = opal_hibit(count, max_bit_pos);
+  buf_count = 1 << n_pow;
+  buf_size = opal_datatype_span(&dtype->super, buf_count, &gap);
 
+  // Temporary target buffer for send operations and source buffer for reduce and overwrite operations
+  tmp_buf_raw = (char *)malloc(buf_size);
+  tmp_buf = tmp_buf_raw - gap;
+  // Temporary target buffer for copy operations and source buffer for send operations
+  cp_buf_raw = (char *)malloc(buf_size);
+  cp_buf = cp_buf_raw - gap;
+  
 
-  size_t send_count, recv_count;
-
-  size_t *chunk_sizes = (size_t *) malloc(adj_size * sizeof(size_t));
-  size_t remainder = count % adj_size;
-  size_t small_chunk = count / adj_size;
-  for (int chunk = 0; chunk < adj_size; chunk++){
-    chunk_sizes[chunk] = (chunk < remainder) ? small_chunk + 1 : small_chunk;
+  // Copy into receive_buffer content of send_buffer to not produce side effects on send_buffer
+  if (send_buffer != MPI_IN_PLACE) {
+    ompi_datatype_copy_content_same_ddt(dtype, count, (char *)receive_buffer, (char *)send_buffer);
   }
 
   unsigned int *send_bitmap = calloc(adj_size, sizeof(unsigned int));
