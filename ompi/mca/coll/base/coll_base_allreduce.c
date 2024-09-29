@@ -1347,42 +1347,22 @@ err_hndl:
 
 
 
-int mylog2(int n) {
-  if (n <= 0) return -1;
-  int log = 0;
-  while (n >> 1) {
-    n >>= 1;
-    log++;
-  }
-    return log;
+static inline int pow_of_neg_two(int n) {
+  int power_of_two = 1 << n;
+  // If n is even, return 2^n, otherwise return -2^n
+  return (n % 2 == 0) ? power_of_two : -power_of_two;
 }
 
-int int_pow(int base, int exp) {
-  int result = 1;
-  while (exp > 0) {
-    if (exp % 2 == 1) result *= base;
-    base *= base;
-    exp /= 2;
-  }
+static inline int pi(int r, int s, int p) {
+  int rho_s = (1 - pow_of_neg_two(s + 1)) / 3;
+  int result;
+  if (r % 2 == 0) result = (r + rho_s) % p;
+  else            result = (r - rho_s) % p;
+
+  if (result < 0) result += p;
+
   return result;
 }
-
-int rho(int s) {
-  int value = 1 - int_pow(-2, s + 1);
-  return value / 3;
-}
-
-int pi(int r, int s, int p) {
-    int rho_s = rho(s);
-    int result;
-    if (r % 2 == 0) result = (r + rho_s) % p;
-    else            result = (r - rho_s) % p;
-
-    if (result < 0) result += p;
-
-    return result;
-}
-
 
 int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer, size_t count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
   int rank, size;
@@ -1395,7 +1375,7 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   rank = ompi_comm_rank(comm);
 
   if (rank == 0){
-    printf("SWING LATENCY OPTIMAL\n\n");
+    printf("SWING LATENCY OPTIMAL\n");
     fflush(stdout);
   }
 
@@ -1461,7 +1441,10 @@ int ompi_coll_base_allreduce_swing(const void *send_buffer, void *receive_buffer
   
   
   // Actual allreduce computation for general cases
-  int steps = is_power_of_two ? mylog2(size) : mylog2(adjsize);
+  int steps = opal_hibit(size, comm->c_cube_dim + 1);
+  if (-1 == steps) {
+    return MPI_ERR_ARG;
+  }
   int s, vdest, dest;
   for (s = 0; s < steps; s++){
     if (loop_flag) break;
@@ -1520,18 +1503,9 @@ error_hndl:
 }
 
 
-// void my_reduce(/* ompi_op_t* op, */ const void *source, void *target, int wsize, int* r_block_lengths, int* r_displacements){
-//   int *i_source = (int*) source;
-//   int *i_target = (int*) target;
-//   for (int chunk = 0; chunk < wsize; chunk++){
-//     for (int i = r_displacements[chunk]; i < r_block_lengths[chunk]; i++){
-//       i_target[i] += i_source[i];
-//     }
-//   }
-// }
-
-void get_indexes_aux(int r, int step, int p, unsigned int *blocks){
-  int max_steps = mylog2(p);
+static inline void get_indexes_aux(int r, int step, int p, unsigned int *blocks){
+  int max_bit_pos = (int)(sizeof(size_t) * CHAR_BIT) - 1;
+  int max_steps = opal_hibit(p, max_bit_pos);
   if (step >= max_steps) return;
 
   for (int s = step; s <= max_steps; s++){
@@ -1542,8 +1516,9 @@ void get_indexes_aux(int r, int step, int p, unsigned int *blocks){
 
 }
 
-void get_indexes(int r, int step, int p, unsigned int *blocks){
-  int max_steps = mylog2(p);
+static inline void get_indexes(int r, int step, int p, unsigned int *blocks){
+  int max_bit_pos = (int)(sizeof(size_t) * CHAR_BIT) - 1;
+  int max_steps = opal_hibit(p, max_bit_pos);
   if (step >= max_steps) return;
   
   int peer = pi(r, step, p);
@@ -1553,7 +1528,6 @@ void get_indexes(int r, int step, int p, unsigned int *blocks){
 
 
 int create_custom_datatype(int adj_size, int wsize, int chunk_size, unsigned int* bitmap, struct ompi_datatype_t* d_type, struct ompi_datatype_t* new_type, int* block_lengths, int* displacements){
-  
   int rc_ci;
   int index = 0;
   for (int i = 0; i < adj_size; i++){
@@ -1592,7 +1566,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   int rank = ompi_comm_rank(comm);
 
   if (rank == 0) {
-    printf("SWING RABENSEIFNER CUSTOM DT\n\n");
+    printf("SWING RABENSEIFNER CUSTOM DT\n");
     fflush(stdout);
   }
 
@@ -1780,7 +1754,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   int rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
-    printf("SWING RABENSEIFNER MEMCPY\n\n");
+    printf("SWING RABENSEIFNER MEMCPY\n");
     fflush(stdout);
   }
 
@@ -1795,7 +1769,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   
   
   // Find the biggest power-of-two smaller than count to allocate as few memory as necessary for buffers
-  size_t buf_count = (size_t) (opal_next_poweroftwo_inclusive(count) >> 1);
+  int max_bit_pos = (int)(sizeof(size_t) * CHAR_BIT) - 1;
+  int hibit = opal_hibit(count, max_bit_pos);
+  size_t buf_count = 1 << hibit;
+  //size_t buf_count = (size_t) (opal_next_poweroftwo_inclusive(count) >> 1);
   buf_size = opal_datatype_span(&dtype->super, buf_count, &gap);
   
   // Target buffer for send operations and source buffer for reduce and overwrite operations
