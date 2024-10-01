@@ -1575,7 +1575,7 @@ static inline void my_overwrite(const void *source, void *target, const unsigned
 }
 
 
-int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t *chunk_sizes, ompi_datatype_t *old_dtype){
+static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t *chunk_sizes, ompi_datatype_t *old_dtype){
   int index = 0, disp_counter = 0;
   int *block_len, *disp;
   
