@@ -1679,7 +1679,6 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   s_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
   r_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
   
-  ompi_datatype_t *ind_dtype = MPI_DATATYPE_NULL;
   ompi_datatype_t *s_ind_dtype = MPI_DATATYPE_NULL;
   ompi_datatype_t *r_ind_dtype = MPI_DATATYPE_NULL;
   int *block_len = (int *)malloc(adj_size * sizeof(int));
@@ -1715,20 +1714,21 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   for(step = n_steps - 1; step >= 0; step--) {
     vdest = pi(vrank, step, adj_size);
 
-    indexed_datatype(&ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
+    indexed_datatype(&s_ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
+    indexed_datatype(&r_ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
     
     int send_count = 0;
     for(int i = 0; i < adj_size; i++){
       if(s_bitmap[i + bitmap_offset] != 0)       send_count += chunk_sizes[i];
     }
-    err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
-    
-    my_overwrite(tmp_buf, recv_buf, s_bitmap + bitmap_offset, adj_size, chunk_sizes, dtype);
+    err = ompi_coll_base_sendrecv(recv_buf, 1, r_ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, recv_buf, 1, s_ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
     w_size *= 2;
     bitmap_offset -= adj_size;
-    ompi_datatype_destroy(&ind_dtype);
-    ind_dtype = MPI_DATATYPE_NULL;
+    ompi_datatype_destroy(&s_ind_dtype);
+    s_ind_dtype = MPI_DATATYPE_NULL;
+    ompi_datatype_destroy(&r_ind_dtype);
+    r_ind_dtype = MPI_DATATYPE_NULL;
   }
 
 
