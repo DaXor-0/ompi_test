@@ -1346,24 +1346,145 @@ err_hndl:
 /* copied function (with appropriate renaming) ends here */
 
 
-
 static inline int pow_of_neg_two(int n) {
   int power_of_two = 1 << n;
   // If n is even, return 2^n, otherwise return -2^n
   return (n % 2 == 0) ? power_of_two : -power_of_two;
 }
 
-static inline int pi(int r, int s, int p) {
+
+static inline int pi(int rank, int step, int comm_sz) {
   int rho_s = (1 - pow_of_neg_two(s + 1)) / 3;
-  int result;
-  if (r % 2 == 0) result = (r + rho_s) % p;
-  else            result = (r - rho_s) % p;
+  int dest;
+  if (rank % 2 == 0)  dest = (rank + rho_s) % comm_sz;
+  else                dest = (rank - rho_s) % comm_sz;
 
-  if (result < 0) result += p;
+  if (dest < 0) dest += comm_sz;
 
-  return result;
+  return dest;
 }
 
+
+static inline void get_indexes_aux(int rank, int step, const int n_steps, const int adj_size, unsigned char *bitmap){
+  if (step >= n_steps) return;
+
+  int peer;
+  
+  for (int s = step; s < n_steps; s++){
+    peer = pi(rank, s, adj_size);
+    *(bitmap + peer) = 0x1;
+    get_indexes_aux(peer, s + 1, n_steps, adj_size, bitmap);
+  }
+}
+
+
+static inline void get_indexes(int rank, int step, const int n_steps, const int adj_size, unsigned char *bitmap){
+  if (step >= n_steps) return;
+  
+  int peer = pi(rank, step, adj_size);
+  *(bitmap + peer) = 0x1;
+  get_indexes_aux(peer, step + 1, n_steps, adj_size, bitmap);
+}
+
+
+static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype) {
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
+  size_t el_size;
+  ompi_datatype_type_size(dtype, &el_size);
+
+  for (int chunk = 0; chunk < adj_size; chunk++) {
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0) {
+      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
+      t_offset += chunk_size_actual;
+    }
+    s_offset += chunk_size_actual;
+  }
+}
+
+
+static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
+  size_t el_size;
+  ompi_datatype_type_size(dtype, &el_size);
+
+  for(int chunk = 0; chunk < adj_size; chunk++){
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0){
+      ompi_op_reduce(op, source + s_offset, target + t_offset, chunk_sizes[chunk], dtype);
+      s_offset += chunk_size_actual;
+    }
+    t_offset += chunk_size_actual;
+  }
+}
+
+
+static inline void my_reduce_indexed_dtype(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
+  ptrdiff_t offset = 0, chunk_size_actual;
+  size_t el_size;
+  ompi_datatype_type_size(dtype, &el_size);
+
+  for(int chunk = 0; chunk < adj_size; chunk++){
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0){
+      ompi_op_reduce(op, source + offset, target + offset, chunk_sizes[chunk], dtype);
+    }
+    offset += chunk_size_actual;
+  }
+}
+
+
+static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype, ompi_datatype_t *actual_dtype){
+  // WARNING: I need to find a better method instead of passing also actual_dtype (I need to use only one dtype and
+  // gain original dtype from it in case of custom dt)
+  if(ompi_datatype_is_predefined(actual_dtype)){
+    my_reduce_copy(op, source, target, bitmap, adj_size, chunk_sizes, dtype);
+    return;
+  }
+  else{
+    my_reduce_indexed_dtype(op, source, target, bitmap, adj_size, chunk_sizes, dtype);
+    return;
+  }
+}
+
+
+static inline void my_overwrite(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, struct ompi_datatype_t *dtype){
+  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
+  size_t el_size;
+  ompi_datatype_type_size(dtype, &el_size);
+
+  for(int chunk = 0; chunk < adj_size; chunk++){
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0){
+      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
+      s_offset += chunk_size_actual;
+    }
+    t_offset += chunk_size_actual;
+  }
+}
+
+
+static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t *chunk_sizes, ompi_datatype_t *old_dtype, int *block_len, int *disp){
+  int index = 0, disp_counter = 0;
+  for (int i = 0; i < adj_size; i++){
+    if (bitmap[i] != 0){
+      block_len[index] = (int) chunk_sizes[i];
+      disp[index] = disp_counter;
+      index++;
+    }
+    disp_counter += (int) chunk_sizes[i];
+  }
+
+  if (index != w_size){
+    printf("\n\nERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR\nindex!=w_size ---> i:%d w_s:%d\n\n", index, w_size);
+    return MPI_ERR_UNKNOWN;
+  }
+
+  ompi_datatype_create_indexed(w_size, block_len, disp, old_dtype, new_dtype);
+  ompi_datatype_commit(new_dtype);
+
+  return MPI_SUCCESS;
+}
 int ompi_coll_base_allreduce_swing(const void *send_buf, void *recv_buf, size_t count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module) {
   int rank, size;
   int ret, line; // for error handling
@@ -1502,141 +1623,15 @@ error_hndl:
 }
 
 
-static inline void get_indexes_aux(int rank, int step, const int n_steps, const int adj_size, unsigned char *bitmap){
-  if (step >= n_steps) return;
 
-  int peer;
-  
-  for (int s = step; s < n_steps; s++){
-    peer = pi(rank, s, adj_size);
-    *(bitmap + peer) = 0x1;
-    get_indexes_aux(peer, s + 1, n_steps, adj_size, bitmap);
-  }
-
-}
-
-
-static inline void get_indexes(int rank, int step, const int n_steps, const int adj_size, unsigned char *bitmap){
-  if (step >= n_steps) return;
-  
-  int peer = pi(rank, step, adj_size);
-  *(bitmap + peer) = 0x1;
-  get_indexes_aux(peer, step + 1, n_steps, adj_size, bitmap);
-}
-
-
-static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype) {
-  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
-  size_t el_size;
-  ompi_datatype_type_size(dtype, &el_size);
-
-  for (int chunk = 0; chunk < adj_size; chunk++) {
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
-    if (bitmap[chunk] != 0) {
-      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
-      t_offset += chunk_size_actual;
-    }
-    s_offset += chunk_size_actual;
-  }
-}
-
-
-static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
-  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
-  size_t el_size;
-  ompi_datatype_type_size(dtype, &el_size);
-
-  for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
-    if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, source + s_offset, target + t_offset, chunk_sizes[chunk], dtype);
-      s_offset += chunk_size_actual;
-    }
-    t_offset += chunk_size_actual;
-  }
-}
-
-
-static inline void my_reduce_datatype(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
-  ptrdiff_t offset = 0, chunk_size_actual;
-  size_t el_size;
-  ompi_datatype_type_size(dtype, &el_size);
-
-  for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
-    if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, source + offset, target + offset, chunk_sizes[chunk], dtype);
-    }
-    offset += chunk_size_actual;
-  }
-}
-
-static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype, ompi_datatype_t *actual_dtype){
-
-  if(ompi_datatype_is_predefined(actual_dtype)){
-    my_reduce_copy(op, source, target, bitmap, adj_size, chunk_sizes, dtype);
-    return;
-  }
-  else{
-    my_reduce_datatype(op, source, target, bitmap, adj_size, chunk_sizes, dtype);
-    return;
-  }
-}
-
-
-static inline void my_overwrite(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, struct ompi_datatype_t *dtype){
-  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
-  size_t el_size;
-  ompi_datatype_type_size(dtype, &el_size);
-
-  for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
-    if (bitmap[chunk] != 0){
-      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
-      s_offset += chunk_size_actual;
-    }
-    t_offset += chunk_size_actual;
-  }
-}
-
-
-static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t *chunk_sizes, ompi_datatype_t *old_dtype, int *block_len, int *disp){
-  int index = 0, disp_counter = 0;
-  for (int i = 0; i < adj_size; i++){
-    if (bitmap[i] != 0){
-      block_len[index] = (int) chunk_sizes[i];
-      disp[index] = disp_counter;
-      index++;
-    }
-    disp_counter += (int) chunk_sizes[i];
-  }
-
-  if (index != w_size){
-    printf("\n\nERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR\nindex!=w_size ---> i:%d w_s:%d\n\n", index, w_size);
-    return MPI_ERR_UNKNOWN;
-  }
-
-  ompi_datatype_create_indexed(w_size, block_len, disp, old_dtype, new_dtype);
-  ompi_datatype_commit(new_dtype);
-
-  return MPI_SUCCESS;
-}
 
 int ompi_coll_base_allreduce_swing_rabenseifner(
     const void *send_buf, void *recv_buf, size_t count, struct ompi_datatype_t *dtype,
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-  int comm_size, rank, adj_size, vrank, vdest;
-  int step, n_steps, err, bitmap_offset;
-  size_t buf_count, w_size;
-  size_t *chunk_sizes, small_chunk_size, remainder;
-  char *tmp_buf_raw, *tmp_buf;
-  unsigned char *s_bitmap, *r_bitmap;
-  ptrdiff_t lb, extent, gap = 0;
-
-
-  comm_size = ompi_comm_size(comm);
+  int comm_sz, rank;
+  comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
@@ -1648,25 +1643,32 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
   // biggest power of two smaller or equal to comm_sz,
   // size of send_window (number of chunks to send/recv at each step)
   // and alias of the rank to be used if comm_sz != adj_size
-  n_steps = opal_hibit(comm_size, comm->c_cube_dim + 1);
+  int n_step, adj_size;
+  n_steps = opal_hibit(comm_sz, comm->c_cube_dim + 1);
   adj_size = 1 << n_steps;
-  w_size = adj_size;
+
+
   //WARNING: Assuming comm_sz is a pow of 2
+  int vrank, vdest;
   vrank = rank;
   
-  err = MPI_SUCCESS;
+  int err = MPI_SUCCESS;
 
+  // NOTE: what do I do with this? I think extent can be used instead of size, need to control
+  // also strided datatipes can use extent and true extent
+  ptrdiff_t lb, extent, gap = 0;
   ompi_datatype_get_extent(dtype, &lb, &extent);
   
+  size_t *chunk_sizes, small_chunk_size, remainder;
   chunk_sizes = (size_t *) malloc(adj_size * sizeof(size_t));
   small_chunk_size = count / ((size_t) adj_size);
   remainder = count % ((size_t) adj_size); 
   for (size_t chunk = 0; chunk < ((size_t) adj_size); chunk++){
     chunk_sizes[chunk] = (chunk < remainder) ? small_chunk_size + 1 : small_chunk_size;
   }
-  
 
   // Temporary target buffer for send operations and source buffer for reduce and overwrite operations
+  char *tmp_buf_raw, *tmp_buf;
   ptrdiff_t buf_size = opal_datatype_span(&dtype->super, count, &gap);
   tmp_buf_raw = (char *)malloc(buf_size);
   tmp_buf = tmp_buf_raw - gap;
@@ -1676,18 +1678,23 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
     ompi_datatype_copy_content_same_ddt(dtype, count, (char *)recv_buf, (char *)send_buf);
   }
 
+  unsigned char *s_bitmap, *r_bitmap;
+  int bitmap_offset = 0;
   s_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
   r_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
   
-  ompi_datatype_t ** ind_dtype = (ompi_datatype_t **) malloc(2 * n_steps * sizeof(*ind_dtype));
-  int *block_len = (int *)malloc(adj_size * sizeof(int));
-  int *disp = (int *)malloc(adj_size * sizeof(int));
+  ompi_datatype_t **ind_dtype;
+  int *block_len, *disp, dtype_offset = 0;
+  ind_dtype = (ompi_datatype_t **) malloc(2 * n_steps * sizeof(*ind_dtype));
+  block_len = (int *)malloc(adj_size * sizeof(int));
+  disp = (int *)malloc(adj_size * sizeof(int));
 
+  
+  int step;
+  size_t w_size = (size_t) adj_size;
   // Reduce-Scatter phase
-  bitmap_offset = 0;
-  int dtype_offset = 0;
   for (step = 0; step < n_steps; step++) {
-    w_size /= 2;
+    w_size >>= 1;
 
     vdest = pi(vrank, step, adj_size);
     
@@ -1695,8 +1702,8 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
     get_indexes(vdest, step, n_steps, adj_size, r_bitmap + bitmap_offset);
     
     ind_dtype[0 + dtype_offset] = MPI_DATATYPE_NULL;
-    ind_dtype[1 + dtype_offset] = MPI_DATATYPE_NULL;
     indexed_datatype(&ind_dtype[0 + dtype_offset], s_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
+    ind_dtype[1 + dtype_offset] = MPI_DATATYPE_NULL;
     indexed_datatype(&ind_dtype[1 + dtype_offset], r_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
      
     err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
@@ -1718,7 +1725,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner(
     ompi_datatype_destroy(&ind_dtype[1 + dtype_offset]);
     ompi_datatype_destroy(&ind_dtype[0 + dtype_offset]);
     
-    w_size *= 2;
+    w_size <<= 1;
     bitmap_offset -= adj_size;
     dtype_offset -= 2;
   }
@@ -1744,18 +1751,8 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     struct ompi_op_t *op, struct ompi_communicator_t *comm,
     mca_coll_base_module_t *module)
 {
-  int comm_size, rank, adj_size, vrank, vdest;
-  int step, n_steps, bitmap_offset, err, max_bit_pos, n_pow;
-  
-  
-  size_t buf_count, w_size, send_count, recv_count;
-  size_t *chunk_sizes, small_chunk_size, remainder;
-
-  char *tmp_buf_raw, *tmp_buf, *cp_buf_raw, *cp_buf;
-  unsigned char *send_bitmap, *recv_bitmap;
-  ptrdiff_t lb, extent, gap = 0, buf_size;
-  
-  comm_size = ompi_comm_size(comm);
+  int comm_sz, rank; 
+  comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
@@ -1767,17 +1764,22 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   // biggest power of two smaller or equal to comm_sz,
   // size of send_window (number of chunks to send/recv at each step)
   // and alias of the rank to be used if comm_sz != adj_size
-  n_steps = opal_hibit(comm_size, comm->c_cube_dim + 1);
+  int n_steps, adj_size;
+  n_steps = opal_hibit(comm_sz, comm->c_cube_dim + 1);
   adj_size = 1 << n_steps;
-  w_size = adj_size;
+  
   //WARNING: Assuming comm_sz is a pow of 2
+  int vrank, vdest;
   vrank = rank;
   
-  err = MPI_SUCCESS;
+  int err = MPI_SUCCESS;
 
+  ptrdiff_t lb, extent, gap = 0;
   ompi_datatype_get_extent(dtype, &lb, &extent);
   
+  size_t *chunk_sizes;
   chunk_sizes = (size_t *) malloc(adj_size * sizeof(size_t));
+  size_t small_chunk_size, remainder;
   small_chunk_size = count / ((size_t) adj_size);
   remainder = count % ((size_t) adj_size); 
   for (size_t chunk = 0; chunk < ((size_t) adj_size); chunk++){
@@ -1785,12 +1787,15 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   }
   
   // Find the biggest power-of-two smaller than count to allocate as few memory as necessary for buffers
+  int max_bit_pos, n_pow;
+  size_t buf_count, buf_size;
   max_bit_pos = (int) (sizeof(count) * CHAR_BIT) - 1;
-  n_pow = opal_hibit(count, max_bit_pos);
+  n_pow = opal_hibit((int)count, max_bit_pos);  // WARNING: here count is casted to int, what happens if count>MAX_INT? 
   buf_count = 1 << n_pow;
   buf_size = opal_datatype_span(&dtype->super, buf_count, &gap);
 
   // Temporary target buffer for send operations and source buffer for reduce and overwrite operations
+  char *tmp_buf_raw, *tmp_buf, *cp_buf_raw, *cp_buf;
   tmp_buf_raw = (char *)malloc(buf_size);
   tmp_buf = tmp_buf_raw - gap;
   // Temporary target buffer for copy operations and source buffer for send operations
@@ -1802,14 +1807,18 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   if (send_buf != MPI_IN_PLACE) {
     ompi_datatype_copy_content_same_ddt(dtype, count, (char *)recv_buf, (char *)send_buf);
   }
-
-  send_bitmap = calloc(adj_size * n_steps, sizeof(unsigned char));
-  recv_bitmap = calloc(adj_size * n_steps, sizeof(unsigned char));
-
+  
+  unsigned char *send_bitmap, *recv_bitmap;
+  int bitmap_offset = 0;
+  send_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
+  recv_bitmap = (unsigned char *) calloc(adj_size * n_steps, sizeof(unsigned char));
+  
+  size_t w_size, send_count, recv_count;
+  w_size = (size_t) adj_size;
+  int step;
   // Reduce-Scatter phase
-  bitmap_offset = 0;
   for (step = 0; step < n_steps; step++) {
-    w_size /= 2;
+    w_size >>= 1;
 
     vdest = pi(vrank, step, adj_size);
     
@@ -1850,7 +1859,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     
     my_overwrite(tmp_buf, recv_buf, send_bitmap + bitmap_offset, adj_size, chunk_sizes, dtype);
 
-    w_size *= 2;
+    w_size <<= 1;
     bitmap_offset -= adj_size;
   }
  
