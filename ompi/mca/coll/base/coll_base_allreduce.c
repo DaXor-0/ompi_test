@@ -1387,31 +1387,15 @@ static inline void get_indexes(int rank, int step, const int n_steps, const int 
 }
 
 
-static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype) {
-  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
-  size_t el_size;
-  ompi_datatype_type_size(dtype, &el_size);
-
-  for (int chunk = 0; chunk < adj_size; chunk++) {
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
-    if (bitmap[chunk] != 0) {
-      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
-      t_offset += chunk_size_actual;
-    }
-    s_offset += chunk_size_actual;
-  }
-}
-
-
 static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype){
   ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    chunk_size_actual = (ptrdiff_t) (chunk_sizes[chunk] * el_size);
     if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, source + s_offset, target + t_offset, chunk_sizes[chunk], dtype);
+      ompi_op_reduce(op, (char *)source + s_offset, (char *)target + t_offset, chunk_sizes[chunk], dtype);
       s_offset += chunk_size_actual;
     }
     t_offset += chunk_size_actual;
@@ -1425,9 +1409,9 @@ static inline void my_reduce_indexed_dtype(ompi_op_t *op, const void *source, vo
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    chunk_size_actual = (ptrdiff_t) (chunk_sizes[chunk] * el_size);
     if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, source + offset, target + offset, chunk_sizes[chunk], dtype);
+      ompi_op_reduce(op, (char *)source + offset, (char *)target + offset, chunk_sizes[chunk], dtype);
     }
     offset += chunk_size_actual;
   }
@@ -1448,18 +1432,34 @@ static inline void my_reduce(ompi_op_t *op, const void *source, void *target, co
 }
 
 
+static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, ompi_datatype_t *dtype) {
+  ptrdiff_t s_offset = 0, t_offset = 0;
+  size_t el_size, chunk_size_actual;
+  ompi_datatype_type_size(dtype, &el_size);
+
+  for (int chunk = 0; chunk < adj_size; chunk++) {
+    chunk_size_actual = chunk_sizes[chunk] * el_size;
+    if (bitmap[chunk] != 0) {
+      memcpy((char *)target + t_offset, (char *)source + s_offset, chunk_size_actual);
+      t_offset += (ptrdiff_t) chunk_size_actual;
+    }
+    s_offset += (ptrdiff_t) chunk_size_actual;
+  }
+}
+
+
 static inline void my_overwrite(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t *chunk_sizes, struct ompi_datatype_t *dtype){
-  ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
-  size_t el_size;
+  ptrdiff_t s_offset = 0, t_offset = 0;
+  size_t el_size, chunk_size_actual;
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
     chunk_size_actual = chunk_sizes[chunk] * el_size;
     if (bitmap[chunk] != 0){
-      memcpy(target + t_offset, source + s_offset, chunk_size_actual);
-      s_offset += chunk_size_actual;
+      memcpy((char *)target + t_offset, (char *)source + s_offset, chunk_size_actual);
+      s_offset += (ptrdiff_t) chunk_size_actual;
     }
-    t_offset += chunk_size_actual;
+    t_offset += (ptrdiff_t) chunk_size_actual;
   }
 }
 
