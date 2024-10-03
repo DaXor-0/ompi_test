@@ -1354,7 +1354,7 @@ static inline int pow_of_neg_two(int n) {
 
 
 static inline int pi(int rank, int step, int comm_sz) {
-  int rho_s = (1 - pow_of_neg_two(s + 1)) / 3;
+  int rho_s = (1 - pow_of_neg_two(step + 1)) / 3;
   int dest;
   if (rank % 2 == 0)  dest = (rank + rho_s) % comm_sz;
   else                dest = (rank - rho_s) % comm_sz;
@@ -1633,7 +1633,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
-    printf("SWING RABENSEIFNER MEMCPY\nnow with char bitmaps:)\n");
+    printf("SWING RABENSEIFNER MEMCPY\n");
     fflush(stdout);
   }
 
@@ -1768,7 +1768,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
   // biggest power of two smaller or equal to comm_sz,
   // size of send_window (number of chunks to send/recv at each step)
   // and alias of the rank to be used if comm_sz != adj_size
-  int n_step, adj_size;
+  int n_steps, adj_size;
   n_steps = opal_hibit(comm_sz, comm->c_cube_dim + 1);
   adj_size = 1 << n_steps;
 
@@ -1880,7 +1880,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   rank = ompi_comm_rank(comm);
   
   if (rank == 0) {
-    printf("SWING RABENSEIFNER DT\n");
+    printf("SWING RABENSEIFNER DT SINGLE\n");
     fflush(stdout);
   }
 
@@ -1888,7 +1888,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   // biggest power of two smaller or equal to comm_sz,
   // size of send_window (number of chunks to send/recv at each step)
   // and alias of the rank to be used if comm_sz != adj_size
-  int n_step, adj_size;
+  int n_steps, adj_size;
   n_steps = opal_hibit(comm_sz, comm->c_cube_dim + 1);
   adj_size = 1 << n_steps;
 
@@ -1949,8 +1949,8 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
 
     vdest = pi(vrank, step, adj_size);
     
-    get_indexes(vrank, step, adj_size, s_bitmap + bitmap_offset);
-    get_indexes(vdest, step, adj_size, r_bitmap + bitmap_offset);
+    get_indexes(vrank, step, n_steps, adj_size, s_bitmap + bitmap_offset);
+    get_indexes(vdest, step, n_steps, adj_size, r_bitmap + bitmap_offset);
     
     indexed_datatype(&ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, chunk_sizes, dtype, block_len, disp);
     
@@ -1961,7 +1961,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
 
     err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, chunk_sizes, dtype);
+    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, chunk_sizes, dtype, dtype);
 
     bitmap_offset += adj_size;
     
@@ -2005,6 +2005,14 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
 
 int ompi_coll_base_allreduce_swing_rabenseifner_segmented(const void *sbuf, void *rbuf, size_t count, struct ompi_datatype_t *dtype, struct ompi_op_t *op, struct ompi_communicator_t *comm, mca_coll_base_module_t *module, uint32_t segsize)
 { 
+  int rank;
+  rank = ompi_comm_rank(comm);
+  
+  if (rank == 0) {
+    printf("SWING RABENSEIFNER SEGMENTED\n");
+    fflush(stdout);
+  }
+
   return MPI_SUCCESS;
 }
 
