@@ -75,8 +75,10 @@ ompi_coll_tuned_allreduce_intra_dec_fixed(const void *sbuf, void *rbuf, size_t c
      *  {6, "rabenseifner"
      *  {7, "allgather_reduce"},
      *  {8, "swing"},
-     *  {9, "swing_rabenseifner_dt"},
-     *  {10, "swing_rabenseifner_memcpy"},
+     *  {9, "swing_rabenseifner_memcpy"},
+     *  {10, "swing_rabenseifner_dt"},
+     *  {11, "swing_rabenseifner_dt_single"},
+     *  {12, "swing_rabenseifner_segmented"},
      *  {0, NULL}
      * Currently, ring, segmented ring, and rabenseifner do not support
      * non-commutative operations.

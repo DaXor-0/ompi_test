@@ -213,9 +213,10 @@ int ompi_coll_base_allreduce_intra_basic_linear(ALLREDUCE_ARGS);
 int ompi_coll_base_allreduce_intra_redscat_allgather(ALLREDUCE_ARGS);
 int ompi_coll_base_allreduce_intra_allgather_reduce(ALLREDUCE_ARGS);
 int ompi_coll_base_allreduce_swing(ALLREDUCE_ARGS);
-int ompi_coll_base_allreduce_swing_rabenseifner(ALLREDUCE_ARGS);
 int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(ALLREDUCE_ARGS);
-
+int ompi_coll_base_allreduce_swing_rabenseifner_dt(ALLREDUCE_ARGS);
+int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(ALLREDUCE_ARGS);
+int ompi_coll_base_allreduce_swing_rabenseifner_segmented(ALLREDUCE_ARGS, uint32_t segsize);
 
 /* AlltoAll */
 int ompi_coll_base_alltoall_intra_pairwise(ALLTOALL_ARGS);
