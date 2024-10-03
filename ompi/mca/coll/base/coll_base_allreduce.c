@@ -2015,6 +2015,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_segmented(const void *sbuf, void
   
   int err = MPI_SUCCESS;
   
+
   return err;
 }
 
