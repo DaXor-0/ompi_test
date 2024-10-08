@@ -1387,15 +1387,15 @@ static inline void get_indexes(int rank, int step, const int n_steps, const int 
 }
 
 
-static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t large_block_count, const int split_rank, ompi_datatype_t *dtype){
+static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype){
   ptrdiff_t s_offset = 0, t_offset = 0, chunk_size_actual;
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = (chunk < split_rank) ? (ptrdiff_t) (large_block_count * el_size) : (ptrdiff_t) ((large_block_count - 1) * el_size);
+    chunk_size_actual = (chunk < split_rank) ? (ptrdiff_t) ((small_block_count + 1) * el_size) : (ptrdiff_t) (small_block_count * el_size);
     if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, (char *)source + s_offset, (char *)target + t_offset, (chunk < split_rank) ? large_block_count : large_block_count - 1, dtype);
+      ompi_op_reduce(op, (char *)source + s_offset, (char *)target + t_offset, (chunk < split_rank) ? small_block_count + 1 : small_block_count, dtype);
       s_offset += chunk_size_actual;
     }
     t_offset += chunk_size_actual;
@@ -1403,42 +1403,42 @@ static inline void my_reduce_copy(ompi_op_t *op, const void *source, void *targe
 }
 
 
-static inline void my_reduce_indexed_dtype(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t large_block_count, const int split_rank, ompi_datatype_t *dtype){
+static inline void my_reduce_indexed_dtype(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype){
   ptrdiff_t offset = 0, chunk_size_actual;
   size_t el_size;
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = (chunk < split_rank) ? (ptrdiff_t) (large_block_count * el_size) : (ptrdiff_t) ((large_block_count - 1) * el_size);
+    chunk_size_actual = (chunk < split_rank) ? (ptrdiff_t) ((small_block_count + 1) * el_size) : (ptrdiff_t) (small_block_count * el_size);
     if (bitmap[chunk] != 0){
-      ompi_op_reduce(op, (char *)source + offset, (char *)target + offset, (chunk < split_rank) ? large_block_count : large_block_count - 1, dtype);
+      ompi_op_reduce(op, (char *)source + offset, (char *)target + offset, (chunk < split_rank) ? small_block_count + 1 : small_block_count, dtype);
     }
     offset += chunk_size_actual;
   }
 }
 
 
-static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t large_block_count, const int split_rank, ompi_datatype_t *dtype, ompi_datatype_t *actual_dtype){
+static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype, ompi_datatype_t *actual_dtype){
   // WARNING: I need to find a better method instead of passing also actual_dtype (I need to use only one dtype and
   // gain original dtype from it in case of custom dt)
   if(ompi_datatype_is_predefined(actual_dtype)){
-    my_reduce_copy(op, source, target, bitmap, adj_size, large_block_count, split_rank, dtype);
+    my_reduce_copy(op, source, target, bitmap, adj_size, small_block_count, split_rank, dtype);
     return;
   }
   else{
-    my_reduce_indexed_dtype(op, source, target, bitmap, adj_size, large_block_count, split_rank, dtype);
+    my_reduce_indexed_dtype(op, source, target, bitmap, adj_size, small_block_count, split_rank, dtype);
     return;
   }
 }
 
 
-static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t large_block_count, const int split_rank, ompi_datatype_t *dtype) {
+static inline void copy_chunks(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype) {
   ptrdiff_t s_offset = 0, t_offset = 0;
   size_t el_size, chunk_size_actual;
   ompi_datatype_type_size(dtype, &el_size);
 
   for (int chunk = 0; chunk < adj_size; chunk++) {
-    chunk_size_actual = (chunk < split_rank) ? large_block_count * el_size : (large_block_count - 1) * el_size;
+    chunk_size_actual = (chunk < split_rank) ? (small_block_count + 1) * el_size : small_block_count * el_size;
     if (bitmap[chunk] != 0) {
       memcpy((char *)target + t_offset, (char *)source + s_offset, chunk_size_actual);
       t_offset += (ptrdiff_t) chunk_size_actual;
@@ -1447,13 +1447,13 @@ static inline void copy_chunks(const void *source, void *target, const unsigned 
   }
 }
 
-static inline void my_overwrite(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t large_block_count, const int split_rank, struct ompi_datatype_t *dtype){
+static inline void my_overwrite(const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, struct ompi_datatype_t *dtype){
   ptrdiff_t s_offset = 0, t_offset = 0;
   size_t el_size, chunk_size_actual;
   ompi_datatype_type_size(dtype, &el_size);
 
   for(int chunk = 0; chunk < adj_size; chunk++){
-    chunk_size_actual = (chunk < split_rank) ? large_block_count * el_size : (large_block_count - 1) * el_size;
+    chunk_size_actual = (chunk < split_rank) ? (small_block_count + 1) * el_size : small_block_count * el_size;
     if (bitmap[chunk] != 0){
       memcpy((char *)target + t_offset, (char *)source + s_offset, chunk_size_actual);
       s_offset += (ptrdiff_t) chunk_size_actual;
@@ -1463,15 +1463,15 @@ static inline void my_overwrite(const void *source, void *target, const unsigned
 }
 
 
-static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t large_block_count, const int split_rank, ompi_datatype_t *old_dtype, int *block_len, int *disp){
+static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned char *bitmap, int adj_size, int w_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *old_dtype, int *block_len, int *disp){
   int index = 0, disp_counter = 0;
   for (int i = 0; i < adj_size; i++){
     if (bitmap[i] != 0){
-      block_len[index] =  i < split_rank ? (int) large_block_count : (int) (large_block_count - 1);
+      block_len[index] =  i < split_rank ? (int) (small_block_count + 1) : (int) small_block_count;
       disp[index] = disp_counter;
       index++;
     }
-    disp_counter += i < split_rank ? (int) large_block_count : (int) (large_block_count - 1);
+    disp_counter += i < split_rank ? (int) (small_block_count + 1): (int) small_block_count;
   }
 
   if (index != w_size){
@@ -1650,8 +1650,6 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   int vrank, vdest;
   vrank = rank;
   
-  int err = MPI_SUCCESS;
-
   ptrdiff_t lb, extent, gap = 0;
   ompi_datatype_get_extent(dtype, &lb, &extent);
   
@@ -1697,7 +1695,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     get_indexes(vrank, step, n_steps, adj_size, s_bitmap + bitmap_offset);
     get_indexes(vdest, step, n_steps, adj_size, r_bitmap + bitmap_offset);
     
-    copy_chunks(recv_buf, cp_buf, s_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype);   
+    copy_chunks(recv_buf, cp_buf, s_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype);   
 
     send_count = 0;
     recv_count = 0;
@@ -1706,9 +1704,9 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
       else if(r_bitmap[i + bitmap_offset] != 0)  recv_count += (i < split_rank) ? large_block_count : small_block_count;
     }
 
-    err = ompi_coll_base_sendrecv(cp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(cp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype, dtype);
+    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype, dtype);
 
     bitmap_offset += adj_size;
   }
@@ -1718,7 +1716,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   for(step = n_steps - 1; step >= 0; step--) {
     vdest = pi(vrank, step, adj_size);
 
-    copy_chunks(recv_buf, cp_buf, r_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype);   
+    copy_chunks(recv_buf, cp_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype);   
     
     send_count = 0;
     recv_count = 0;
@@ -1727,9 +1725,9 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
       else if(r_bitmap[i + bitmap_offset] != 0)  recv_count += (i < split_rank) ? large_block_count : small_block_count;
     }
     
-    err = ompi_coll_base_sendrecv(cp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(cp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_overwrite(tmp_buf, recv_buf, s_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype);
+    my_overwrite(tmp_buf, recv_buf, s_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype);
 
     w_size <<= 1;
     bitmap_offset -= adj_size;
@@ -1772,8 +1770,6 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
   int vrank, vdest;
   vrank = rank;
   
-  int err = MPI_SUCCESS;
-
   int split_rank;
   size_t small_block_count, large_block_count;
   COLL_BASE_COMPUTE_BLOCKCOUNT(count, adj_size, split_rank, large_block_count, small_block_count);
@@ -1817,13 +1813,13 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
     get_indexes(vdest, step, n_steps, adj_size, r_bitmap + bitmap_offset);
     
     ind_dtype[0 + dtype_offset] = MPI_DATATYPE_NULL;
-    indexed_datatype(&ind_dtype[0 + dtype_offset], s_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&ind_dtype[0 + dtype_offset], s_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
     ind_dtype[1 + dtype_offset] = MPI_DATATYPE_NULL;
-    indexed_datatype(&ind_dtype[1 + dtype_offset], r_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&ind_dtype[1 + dtype_offset], r_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
      
-    err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype, ind_dtype[1 + dtype_offset]);
+    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype, ind_dtype[1 + dtype_offset]);
 
     bitmap_offset += adj_size;
     dtype_offset += 2;
@@ -1835,7 +1831,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
   for(step = n_steps - 1; step >= 0; step--) {
     vdest = pi(vrank, step, adj_size);
     
-    err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
     ompi_datatype_destroy(&ind_dtype[1 + dtype_offset]);
     ompi_datatype_destroy(&ind_dtype[0 + dtype_offset]);
@@ -1887,8 +1883,6 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   int vrank, vdest;
   vrank = rank;
   
-  int err = MPI_SUCCESS;
-  
   int split_rank;
   size_t small_block_count, large_block_count;
   COLL_BASE_COMPUTE_BLOCKCOUNT(count, adj_size, split_rank, large_block_count, small_block_count);
@@ -1937,16 +1931,16 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
     get_indexes(vrank, step, n_steps, adj_size, s_bitmap + bitmap_offset);
     get_indexes(vdest, step, n_steps, adj_size, r_bitmap + bitmap_offset);
     
-    indexed_datatype(&ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
     
     recv_count = 0;
     for(int i = 0; i < adj_size; i++){
       if(r_bitmap[i + bitmap_offset] != 0)  recv_count += (i < split_rank) ? large_block_count : small_block_count;
     }
 
-    err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype, dtype);
+    my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype, dtype);
 
     bitmap_offset += adj_size;
     
@@ -1959,16 +1953,16 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   for(step = n_steps - 1; step >= 0; step--) {
     vdest = pi(vrank, step, adj_size);
 
-    indexed_datatype(&ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
     
     recv_count = 0;
     for(int i = 0; i < adj_size; i++){
       if(s_bitmap[i + bitmap_offset] != 0)  recv_count += (i < split_rank) ? large_block_count : small_block_count;
     }
 
-    err = ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
+    ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
-    my_overwrite(tmp_buf, recv_buf, s_bitmap + bitmap_offset, adj_size, large_block_count, split_rank, dtype);
+    my_overwrite(tmp_buf, recv_buf, s_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype);
     
     w_size *= 2;
     bitmap_offset -= adj_size;
@@ -2141,8 +2135,8 @@ int ompi_coll_base_allreduce_swing_rabenseifner_segmented(const void *send_buf, 
   for(step = n_steps - 1; step >= 0; step--) {
     vdest = pi(vrank, step, adj_size);
     
-    indexed_datatype(&s_ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
-    indexed_datatype(&r_ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, large_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&s_ind_dtype, s_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
+    indexed_datatype(&r_ind_dtype, r_bitmap + bitmap_offset, adj_size, w_size, small_block_count, split_rank, dtype, block_len, disp);
 
     ompi_coll_base_sendrecv(recv_buf, 1, r_ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, recv_buf, 1, s_ind_dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
