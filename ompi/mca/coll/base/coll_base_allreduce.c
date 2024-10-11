@@ -1496,10 +1496,10 @@ int ompi_coll_base_allreduce_swing(const void *send_buf, void *recv_buf, size_t 
   size = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
 
-  if (rank == 0){
-    printf("SWING LATENCY OPTIMAL\n");
-    fflush(stdout);
-  }
+  // if (rank == 0){
+  //   printf("SWING LATENCY OPTIMAL\n");
+  //   fflush(stdout);
+  // }
 
   OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "coll:base:allreduce_swing rank %d", rank));
 
@@ -1633,10 +1633,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER MEMCPY\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("SWING RABENSEIFNER MEMCPY\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1752,10 +1752,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER DT\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("SWING RABENSEIFNER DT\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1865,10 +1865,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER DT SINGLE\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("SWING RABENSEIFNER DT SINGLE\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1986,10 +1986,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_segmented(const void *send_buf, 
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER SEGMENTED\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("SWING RABENSEIFNER SEGMENTED\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
