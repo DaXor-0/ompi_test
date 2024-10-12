@@ -548,3 +548,4 @@ docs/html
 docs/man
 
 compile_commands.json
+.cache/clangd/
