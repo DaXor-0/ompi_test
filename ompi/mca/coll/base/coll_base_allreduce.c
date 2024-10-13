@@ -61,8 +61,6 @@ ompi_coll_base_allreduce_intra_nonoverlapping(const void *sbuf, void *rbuf, size
                                                struct ompi_communicator_t *comm,
                                                mca_coll_base_module_t *module)
 {
-    printf("\n\nINTRA NON OVERLAPPING\n\n");
-    fflush(stdout);
     int err, rank;
 
     rank = ompi_comm_rank(comm);
