@@ -546,3 +546,6 @@ docs/schizo-ompi-rst-content
 # tarballs)
 docs/html
 docs/man
+
+compile_commands.json
+.cache
