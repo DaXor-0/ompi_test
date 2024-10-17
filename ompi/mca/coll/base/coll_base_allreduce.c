@@ -1739,7 +1739,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
     ompi_coll_base_sendrecv(cp_buf, send_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, recv_count, dtype, vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
     my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype, dtype);
-
+ 
     bitmap_offset += adj_size;
   }
   
