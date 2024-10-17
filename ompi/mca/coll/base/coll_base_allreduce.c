@@ -60,12 +60,16 @@ ompi_coll_base_allreduce_intra_nonoverlapping(const void *sbuf, void *rbuf, size
                                                struct ompi_op_t *op,
                                                struct ompi_communicator_t *comm,
                                                mca_coll_base_module_t *module)
+
 {
-    printf("\n\nINTRA NON OVERLAPPING\n\n");
-    fflush(stdout);
     int err, rank;
 
     rank = ompi_comm_rank(comm);
+
+    // if (rank == 0) {
+    //   printf("2: NON OVERLAPPING\n");
+    //   fflush(stdout);
+    // }
 
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,"coll:base:allreduce_intra_nonoverlapping rank %d", rank));
 
@@ -147,6 +151,11 @@ ompi_coll_base_allreduce_intra_recursivedoubling(const void *sbuf, void *rbuf,
 
     size = ompi_comm_size(comm);
     rank = ompi_comm_rank(comm);
+
+    // if (rank == 0) {
+    //   printf("3: RECURSIVE DOUBLING\n");
+    //   fflush(stdout);
+    // }
 
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,
                  "coll:base:allreduce_intra_recursivedoubling rank %d", rank));
@@ -360,6 +369,11 @@ ompi_coll_base_allreduce_intra_ring(const void *sbuf, void *rbuf, size_t count,
 
     size = ompi_comm_size(comm);
     rank = ompi_comm_rank(comm);
+
+    // if (rank == 0) {
+    //   printf("4: RING\n");
+    //   fflush(stdout);
+    // }
 
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,
                  "coll:base:allreduce_intra_ring rank %d, count %zu", rank, count));
@@ -640,6 +654,11 @@ ompi_coll_base_allreduce_intra_ring_segmented(const void *sbuf, void *rbuf, size
     size = ompi_comm_size(comm);
     rank = ompi_comm_rank(comm);
 
+    // if (rank == 0) {
+    //   printf("5: RING SEGMENTED\n");
+    //   fflush(stdout);
+    // }
+
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,
                  "coll:base:allreduce_intra_ring_segmented rank %d, count %zu", rank, count));
 
@@ -894,6 +913,10 @@ ompi_coll_base_allreduce_intra_basic_linear(const void *sbuf, void *rbuf, size_t
 
     rank = ompi_comm_rank(comm);
 
+    // if (rank == 0) {
+    //   printf("1: LINEAR\n");
+    //   fflush(stdout);
+    // }
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,"coll:base:allreduce_intra_basic_linear rank %d", rank));
 
     /* Reduce to 0 and broadcast. */
@@ -985,6 +1008,11 @@ int ompi_coll_base_allreduce_intra_redscat_allgather(
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output,
                  "coll:base:allreduce_intra_redscat_allgather: rank %d/%d",
                  rank, comm_size));
+
+    // if (rank == 0) {
+    //   printf("6: RABENSEIFNER\n");
+    //   fflush(stdout);
+    // }
 
     if (!ompi_op_is_commute(op)) {
         OPAL_OUTPUT((ompi_coll_base_framework.framework_output,
@@ -1285,6 +1313,11 @@ int ompi_coll_base_allreduce_intra_allgather_reduce(const void *sbuf, void *rbuf
 
     int size = ompi_comm_size(comm);
 
+    // if (ompi_comm_rank(comm) == 0) {
+    //   printf("7: ALLGATHER REDUCE\n");
+    //   fflush(stdout);
+    // }
+
     sendtmpbuf = (char*) sbuf;
     if( sbuf == MPI_IN_PLACE ) {
         sendtmpbuf = (char *)rbuf;
@@ -1418,10 +1451,9 @@ static inline void my_reduce_indexed_dtype(ompi_op_t *op, const void *source, vo
 }
 
 
-static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype, ompi_datatype_t *actual_dtype){
-  // WARNING: I need to find a better method instead of passing also actual_dtype (I need to use only one dtype and
-  // gain original dtype from it in case of custom dt)
-  if(ompi_datatype_is_predefined(actual_dtype)){
+static inline void my_reduce(ompi_op_t *op, const void *source, void *target, const unsigned char *bitmap, int adj_size, const size_t small_block_count, const int split_rank, ompi_datatype_t *dtype, ompi_datatype_t *rtype){
+  // NOTE: try to use ompi_datatype_get_single_predefined_type_from_args(dtype)
+  if(ompi_datatype_is_predefined(rtype)){
     my_reduce_copy(op, source, target, bitmap, adj_size, small_block_count, split_rank, dtype);
     return;
   }
@@ -1475,7 +1507,7 @@ static inline int indexed_datatype(ompi_datatype_t **new_dtype, const unsigned c
   }
 
   if (index != w_size){
-    printf("\n\nERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR\nindex!=w_size ---> i:%d w_s:%d\n\n", index, w_size);
+    fprintf(stderr, "\n\nERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR ERROR\nindex!=w_size ---> i:%d w_s:%d\n\n", index, w_size);
     return MPI_ERR_UNKNOWN;
   }
 
@@ -1496,10 +1528,10 @@ int ompi_coll_base_allreduce_swing(const void *send_buf, void *recv_buf, size_t 
   size = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
 
-  if (rank == 0){
-    printf("SWING LATENCY OPTIMAL\n");
-    fflush(stdout);
-  }
+  // if (rank == 0){
+  //   printf("8: SWING LATENCY OPTIMAL\n");
+  //   fflush(stdout);
+  // }
 
   OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "coll:base:allreduce_swing rank %d", rank));
 
@@ -1633,10 +1665,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_memcpy(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER MEMCPY\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("9: SWING RABENSEIFNER MEMCPY\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1752,10 +1784,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER DT\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("10: SWING RABENSEIFNER DT\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1819,6 +1851,7 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt(
      
     ompi_coll_base_sendrecv(recv_buf, 1, ind_dtype[0 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, tmp_buf, 1, ind_dtype[1 + dtype_offset], vdest, MCA_COLL_BASE_TAG_ALLREDUCE, comm, MPI_STATUS_IGNORE, rank);
     
+    // ompi_op_reduce(op, tmp_buf, recv_buf, 1, ind_dtype[1 + dtype_offset]);
     my_reduce(op, tmp_buf, recv_buf, r_bitmap + bitmap_offset, adj_size, small_block_count, split_rank, dtype, ind_dtype[1 + dtype_offset]);
 
     bitmap_offset += adj_size;
@@ -1865,10 +1898,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_dt_single(
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER DT SINGLE\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("11: SWING RABENSEIFNER DT SINGLE\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
@@ -1986,10 +2019,10 @@ int ompi_coll_base_allreduce_swing_rabenseifner_segmented(const void *send_buf, 
   comm_sz = ompi_comm_size(comm);
   rank = ompi_comm_rank(comm);
   
-  if (rank == 0) {
-    printf("SWING RABENSEIFNER SEGMENTED\n");
-    fflush(stdout);
-  }
+  // if (rank == 0) {
+  //   printf("12: SWING RABENSEIFNER SEGMENTED\n");
+  //   fflush(stdout);
+  // }
 
   // Find number of steps of scatter-reduce and allgather,
   // biggest power of two smaller or equal to comm_sz,
