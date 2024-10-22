@@ -23,7 +23,8 @@ headers += \
         base/coll_tags.h \
         base/coll_base_topo.h \
         base/coll_base_util.h \
-        base/coll_base_functions.h
+        base/coll_base_functions.h \
+				base/coll_base_swing_utils.h
 
 libmca_coll_la_SOURCES += \
         base/coll_base_comm_select.c \
@@ -45,7 +46,9 @@ libmca_coll_la_SOURCES += \
         base/coll_base_reduce_scatter.c \
         base/coll_base_reduce_scatter_block.c \
         base/coll_base_exscan.c \
-        base/coll_base_scan.c
+        base/coll_base_scan.c \
+				base/coll_base_swing_utils.c \
+				base/swing_bitmaps.c
 
 if WANT_FT_MPI
 libmca_coll_la_SOURCES += \
