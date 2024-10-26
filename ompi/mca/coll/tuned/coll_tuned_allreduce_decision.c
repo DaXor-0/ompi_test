@@ -48,6 +48,7 @@ static const mca_base_var_enum_value_t allreduce_algorithms[] = {
     {10, "swing_rabenseifner_dt"},
     {11, "swing_rabenseifner_dt_single"},
     {12, "swing_rabenseifner_segmented"},
+    {13, "swing_rabenseifner_contiguous"},
     {0, NULL}
 };
 
@@ -164,6 +165,8 @@ int ompi_coll_tuned_allreduce_intra_do_this(const void *sbuf, void *rbuf, size_t
         return ompi_coll_base_allreduce_swing_rabenseifner_dt_single(sbuf, rbuf, count, dtype, op, comm, module);
     case (12):
         return ompi_coll_base_allreduce_swing_rabenseifner_segmented(sbuf, rbuf, count, dtype, op, comm, module, segsize);
+    case (13):
+        return ompi_coll_base_allreduce_swing_rabenseifner_contiguous(sbuf, rbuf, count, dtype, op, comm, module);
     } /* switch */
     OPAL_OUTPUT((ompi_coll_tuned_stream,"coll:tuned:allreduce_intra_do_this attempt to select algorithm %d when only 0-%d is valid?",
                  algorithm, ompi_coll_tuned_forced_max_algorithms[ALLREDUCE]));
