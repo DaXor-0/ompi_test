@@ -47,7 +47,6 @@ libmca_coll_la_SOURCES += \
         base/coll_base_reduce_scatter_block.c \
         base/coll_base_exscan.c \
         base/coll_base_scan.c \
-				base/coll_base_swing_utils.c \
 				base/swing_bitmaps.c
 
 if WANT_FT_MPI
