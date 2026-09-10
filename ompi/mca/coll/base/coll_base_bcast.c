@@ -1242,7 +1242,6 @@ int ompi_coll_base_bcast_intra_bine_lat_reversed(void *buf, size_t count,
         return ompi_coll_base_bcast_intra_binomial(buf, count, datatype, root, comm, module, 0);
     }
 
-    // TODO: CHANGE THIS
     // Use an auxiliary array to record visited node in order
     // to calculate at which step node is gonna receive the message.
     received = calloc(size, sizeof(char));
@@ -1525,8 +1524,6 @@ err_hndl:
     OPAL_OUTPUT((ompi_coll_base_framework.framework_output, "%s:%4d\tError occurred %d, rank %2d",
                  __FILE__, line, err, rank));
     (void) line; // silence compiler warnings
-    if (NULL != requests)
-        free(requests);
     return err;
 }
 
@@ -1572,6 +1569,10 @@ int ompi_coll_base_bcast_intra_bine_bdw_remap(void *buf, size_t count,
                      "non-pow-2 size %d, switching to binomial broadcast",
                      size));
         return ompi_coll_base_bcast_intra_binomial(buf, count, datatype, root, comm, module, 0);
+    }
+
+    if (size <= 1) {
+        return MPI_SUCCESS;
     }
 
     int vrank = ompi_coll_mod(rank - root, size);
@@ -1684,9 +1685,9 @@ int ompi_coll_base_bcast_intra_bine_bdw_remap(void *buf, size_t count,
 
         if (rpartner >= 0 && spartner >= 0 && spartner < size && rpartner < size) {
             err = ompi_coll_base_sendrecv((char *) buf + displs[send_block_first] * extent,
-                                          send_count, datatype, spartner, 0,
+                                          send_count, datatype, spartner, MCA_COLL_BASE_TAG_BCAST,
                                           (char *) buf + displs[recv_block_first] * extent,
-                                          recv_count, datatype, rpartner, 0, comm,
+                                          recv_count, datatype, rpartner, MCA_COLL_BASE_TAG_BCAST, comm,
                                           MPI_STATUS_IGNORE, rank);
             if (MPI_SUCCESS != err) {
                 line = __LINE__;
