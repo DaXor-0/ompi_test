@@ -18,6 +18,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This makefile.am does not stand on its own - it is included from ompi/Makefile.am
@@ -30,7 +31,7 @@ headers += \
         errhandler/errhandler.h \
         errhandler/errhandler_predefined.h
 
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         errhandler/errhandler.c \
         errhandler/errhandler_invoke.c \
         errhandler/errhandler_predefined.c \

@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -41,7 +42,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_ALLTOALLW_INIT,
                             pmpi_alltoallw_init,
                             pmpi_alltoallw_init_,
                             pmpi_alltoallw_init__,
-                            pompi_alltoallw_init_f,
+                            ompi_alltoallw_init_f,
                             (char *sendbuf, MPI_Fint *sendcounts, MPI_Fint *sdispls, MPI_Fint *sendtypes, char *recvbuf, MPI_Fint *recvcounts, MPI_Fint *rdispls, MPI_Fint *recvtypes, MPI_Fint *comm, MPI_Fint *info, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, info, request, ierr) )
 #endif
@@ -56,17 +57,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_ALLTOALLW_INIT,
 #pragma weak MPI_Alltoallw_init_f = ompi_alltoallw_init_f
 #pragma weak MPI_Alltoallw_init_f08 = ompi_alltoallw_init_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_ALLTOALLW_INIT,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_ALLTOALLW_INIT,
                             mpi_alltoallw_init,
                             mpi_alltoallw_init_,
                             mpi_alltoallw_init__,
                             ompi_alltoallw_init_f,
                             (char *sendbuf, MPI_Fint *sendcounts, MPI_Fint *sdispls, MPI_Fint *sendtypes, char *recvbuf, MPI_Fint *recvcounts, MPI_Fint *rdispls, MPI_Fint *recvtypes, MPI_Fint *comm, MPI_Fint *info, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, sendcounts, sdispls, sendtypes, recvbuf, recvcounts, rdispls, recvtypes, comm, info, request, ierr) )
-#else
-#define ompi_alltoallw_init_f pompi_alltoallw_init_f
-#endif
 #endif
 
 

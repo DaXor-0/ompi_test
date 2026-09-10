@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -39,7 +40,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_GROUP_COMPARE,
                            pmpi_group_compare,
                            pmpi_group_compare_,
                            pmpi_group_compare__,
-                           pompi_group_compare_f,
+                           ompi_group_compare_f,
                            (MPI_Fint *group1, MPI_Fint *group2,
                             MPI_Fint *result, MPI_Fint *ierror),
                            (group1,group2,result,ierror))
@@ -56,8 +57,8 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_GROUP_COMPARE,
 #pragma weak MPI_Group_compare_f08 = ompi_group_compare_f
 #endif
 
-#if ! OMPI_BUILD_MPI_PROFILING && ! OPAL_HAVE_WEAK_ALIASES
-OMPI_GENERATE_F77_BINDINGS (MPI_GROUP_COMPARE,
+#if ! OPAL_HAVE_WEAK_ALIASES
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_GROUP_COMPARE,
                            mpi_group_compare,
                            mpi_group_compare_,
                            mpi_group_compare__,
@@ -68,10 +69,6 @@ OMPI_GENERATE_F77_BINDINGS (MPI_GROUP_COMPARE,
 #endif
 
 
-
-#if OMPI_BUILD_MPI_PROFILING && ! OPAL_HAVE_WEAK_ALIASES
-#define ompi_group_compare_f pompi_group_compare_f
-#endif
 
 
 void ompi_group_compare_f(MPI_Fint *group1, MPI_Fint *group2,

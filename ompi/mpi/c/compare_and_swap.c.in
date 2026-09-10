@@ -16,13 +16,14 @@
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2015      Los Alamos National Security, LLC.  All rights
  *                         reserved.
- * Copyright (c) 2024      Triad National Security, LLC. All rights
+ * Copyright (c) 2024-2025 Triad National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -36,8 +37,8 @@
 #include "ompi/mca/osc/osc.h"
 #include "ompi/datatype/ompi_datatype.h"
 
-PROTOTYPE ERROR_CLASS compare_and_swap(BUFFER origin_addr, BUFFER compare_addr, BUFFER_OUT result_addr,
-                                       DATATYPE datatype, INT target_rank, AINT target_disp, WIN win)
+PROTOTYPE ERROR_CLASS compare_and_swap(BUFFER_CONST origin_addr, BUFFER_CONST compare_addr, BUFFER_OUT result_addr,
+                                       DATATYPE datatype, SOURCE target_rank, AINT target_disp, WIN win)
 {
     int rc;
 

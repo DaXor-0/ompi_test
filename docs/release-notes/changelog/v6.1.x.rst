@@ -8,6 +8,54 @@ Open MPI version v6.1.0
 --------------------------
 :Date: ...fill me in...
 
+- Fixed wrong answers from one-sided (RMA) operations on a window
+  allocated with ``MPI_Win_allocate`` when the target is a process on the
+  same node but the operation is carried out by the underlying transport
+  rather than with CPU atomics.  In that case ``osc/rdma`` described the
+  target's memory with an address taken from the calling process's own
+  mapping of the shared segment, while pairing it with the memory
+  registration of a different process, so the transport could read or
+  write the wrong location.  ``MPI_Win_shared_query`` on such a window
+  continues to report an address that is valid in the calling process.
+
+- One-sided (RMA) windows on networks without hardware atomics --
+  ``btl/tcp``, for example -- are dramatically faster when more than one
+  MPI process shares a node.  The ``osc/rdma`` component now applies its
+  shared state optimization whenever the underlying transport guarantees
+  that CPU atomics and transport atomics are atomic with respect to each
+  other, which includes the emulated atomics used on such networks.
+  Previously the optimization was disabled for these transports, so
+  every window-state atomic issued by a process was routed to another
+  process on the same node and executed as a network round trip.
+
+- Nonblocking file I/O no longer loses data when the operating system's
+  asynchronous I/O queue fills, which on macOS it readily does: the
+  ``posix`` ``fbtl`` component sized its batch of concurrent ``aio_write``
+  calls from ``sysconf(_SC_AIO_MAX)``, which there reports the
+  machine-wide ``kern.aiomax`` (90 by default) rather than the
+  ``kern.aioprocmax`` a single process is held to (16).  The component
+  now bounds the batch by the per-process limit, defers requests the
+  queue will not accept instead of discarding them, and reaps the
+  operations it has posted before releasing their control blocks -- an
+  unreaped operation used to cost the process a queue slot permanently,
+  so one refusal disabled nonblocking file I/O for the rest of its life.
+  The new ``fbtl_posix_max_aio_reqs`` MCA parameter overrides the limit.
+  A nonblocking operation the ``fbtl`` cannot post is now reported as
+  ``MPI_ERR_IO``; previously ``MPI_File_iwrite_all`` and ``MPI_Wait``
+  both returned ``MPI_SUCCESS`` for a write that never reached the file.
+
+- Reporting an error for a failed nonblocking file operation no longer
+  crashes the process.  ``MPI_Wait`` and ``MPI_Test`` reach a file's
+  error handler through the request, and a nonblocking file request did
+  not record which file it came from, so invoking the error handler
+  dereferenced a null pointer.
+
+- ``MPI_Info_set`` now accepts a zero-length (empty) value string.  It
+  previously raised ``MPI_ERR_INFO_VALUE`` for an empty value, but
+  MPI-5.0 chapter 10 only limits the *maximum* length of an info
+  value, and gives the empty string a defined meaning for the
+  ``mpi_memory_alloc_kinds`` info key.  Empty *keys* remain invalid.
+
 - Partitioned communication fixes:
 
   - ``MPI_Parrived`` now returns ``flag = true`` for a null request
@@ -30,6 +78,13 @@ Open MPI version v6.1.0
     operation using the same communicator, peer, and tag, which then
     never completed.
 
+- Implemented ``MPI_Get_hw_resource_info()`` using hwloc. The returned
+  info object now reports whether the calling process is restricted to
+  individual NUMA nodes, packages, caches, cores, and processing units.
+  The reported ``hwloc://`` resource keys can also be used with
+  ``MPI_Comm_split_type()`` for hardware- and resource-guided communicator
+  creation. Thanks to Musawer Ahmad Saqif for the contribution.
+
 - Renamed the ``--enable-weak-symbols`` configure option to
   ``--enable-weak-aliases``, which more accurately reflects the linker
   feature (weak symbol *aliases*) that Open MPI actually tests for and
@@ -44,3 +99,9 @@ Open MPI version v6.1.0
   run-time MCA parameters), and a manifest, all indexed from
   ``llms.txt``. See the "LLM-friendly documentation artifacts" page in
   the developer documentation.
+
+- Added support for the MPI-5.0 standard ABI (Application Binary Interface)
+  as defined in Chapter 20 of the MPI-5.0 specification. This includes the
+  creation of a new ``libmpi_abi.so`` library and the ``mpicc_abi`` wrapper
+  compiler for building C applications against the MPI-5 ABI. Note that
+  Fortran ABI support is not yet included.

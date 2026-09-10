@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_SPAWN,
                             pmpi_comm_spawn,
                             pmpi_comm_spawn_,
                             pmpi_comm_spawn__,
-                            pompi_comm_spawn_f,
+                            ompi_comm_spawn_f,
                             (char *command, char *argv, MPI_Fint *maxprocs, MPI_Fint *info, MPI_Fint *root, MPI_Fint *comm, MPI_Fint *intercomm, MPI_Fint *array_of_errcodes, MPI_Fint *ierr, int cmd_len, int string_len),
                             (command, argv, maxprocs, info, root, comm, intercomm, array_of_errcodes, ierr, cmd_len, string_len) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_SPAWN,
 #pragma weak MPI_Comm_spawn_f = ompi_comm_spawn_f
 #pragma weak MPI_Comm_spawn_f08 = ompi_comm_spawn_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_COMM_SPAWN,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_COMM_SPAWN,
                             mpi_comm_spawn,
                             mpi_comm_spawn_,
                             mpi_comm_spawn__,
                             ompi_comm_spawn_f,
                             (char *command, char *argv, MPI_Fint *maxprocs, MPI_Fint *info, MPI_Fint *root, MPI_Fint *comm, MPI_Fint *intercomm, MPI_Fint *array_of_errcodes, MPI_Fint *ierr, int cmd_len, int string_len),
                             (command, argv, maxprocs, info, root, comm, intercomm, array_of_errcodes, ierr, cmd_len, string_len) )
-#else
-#define ompi_comm_spawn_f pompi_comm_spawn_f
-#endif
 #endif
 
 

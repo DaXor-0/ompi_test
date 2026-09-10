@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -31,7 +32,7 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/attribute/attribute.h"
 
-PROTOTYPE ERROR_CLASS add_error_class(INT_OUT errorclass)
+PROTOTYPE ERROR_CLASS add_error_class(ERROR_CLASS_OUT errorclass)
 {
     int eclass;
     int rc;

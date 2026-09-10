@@ -15,11 +15,13 @@
  *                         reserved.
  * Copyright (c) 2017      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #ifndef OPAL_MCA_BASE_VAR_GROUP_H
@@ -54,6 +56,9 @@ struct mca_base_var_group_t {
 
     /** Integer array of group performance variables */
     opal_value_array_t group_pvars;
+
+    /** Integer array of group MPI_T events */
+    opal_value_array_t group_events;
 
     /** Pointer array of group enums */
     opal_value_array_t group_enums;

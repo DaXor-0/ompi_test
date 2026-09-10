@@ -26,6 +26,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -446,6 +447,7 @@ static void ompi_op_construct(ompi_op_t *new_op)
     new_op->op_type = OMPI_OP_NUM_OF_TYPES;
     new_op->o_flags = 0;
     new_op->o_name[0] = '\0';
+    new_op->o_datatype_converter = NULL;
 
     /* assign entry in fortran <-> c translation array */
 

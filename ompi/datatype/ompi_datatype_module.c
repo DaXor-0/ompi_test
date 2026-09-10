@@ -28,6 +28,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -36,6 +37,7 @@
 #include <stdio.h>
 
 #include "opal/datatype/opal_convertor_internal.h"
+#include "opal/mca/base/mca_base_var.h"
 #include "opal/util/output.h"
 #include "opal/util/string_copy.h"
 #include "opal/class/opal_pointer_array.h"
@@ -54,6 +56,9 @@ static int ompi_datatype_finalize (void);
  * as it include all the optional datatypes (such as MPI_INTEGER?, MPI_REAL?).
  */
 int32_t ompi_datatype_number_of_predefined_data = 0;
+
+/* Empirical count/datatype consolidation crossover used by MPI_Pack/Unpack. */
+int ompi_datatype_consolidate_threshold = 250;
 
 /*
  * The following initialization of C, C++ and Fortran types is fairly complex,
@@ -343,10 +348,25 @@ const ompi_datatype_t* ompi_datatype_basicDatatypes[OMPI_DATATYPE_MPI_MAX_PREDEF
     [OMPI_DATATYPE_MPI_FLOAT] = &ompi_mpi_float.dt,
     [OMPI_DATATYPE_MPI_DOUBLE] = &ompi_mpi_double.dt,
     [OMPI_DATATYPE_MPI_LONG_DOUBLE] = &ompi_mpi_long_double.dt,
+    /* Only emit an array entry for the Fortran complex kinds this build
+     * actually provides.  When a kind is unavailable its OMPI_DATATYPE_MPI_*
+     * index macro is redefined to OMPI_DATATYPE_MPI_UNAVAILABLE, so an
+     * unconditional entry would collide with the unavailable sentinel's slot
+     * (a -Winitializer-overrides warning and, worse, would leave the kind's
+     * real numeric slot NULL).  Empty slots are handled at the point of use in
+     * ompi_datatype_args.c. */
+#if OMPI_HAVE_FORTRAN_COMPLEX4
     [OMPI_DATATYPE_MPI_COMPLEX4] = &ompi_mpi_complex4.dt,
+#endif
+#if OMPI_HAVE_FORTRAN_COMPLEX8
     [OMPI_DATATYPE_MPI_COMPLEX8] = &ompi_mpi_complex8.dt,
+#endif
+#if OMPI_HAVE_FORTRAN_COMPLEX16
     [OMPI_DATATYPE_MPI_COMPLEX16] = &ompi_mpi_complex16.dt,
+#endif
+#if OMPI_HAVE_FORTRAN_COMPLEX32
     [OMPI_DATATYPE_MPI_COMPLEX32] = &ompi_mpi_complex32.dt,
+#endif
     [OMPI_DATATYPE_MPI_WCHAR] = &ompi_mpi_wchar.dt,
     [OMPI_DATATYPE_MPI_PACKED] = &ompi_mpi_packed.dt,
 
@@ -460,7 +480,10 @@ opal_pointer_array_t ompi_datatype_f_to_c_table = {{0}};
         ptype->super.desc.desc = NULL;                                               \
         ptype->super.opt_desc.desc = NULL;                                           \
         OBJ_RELEASE( ptype );                                                        \
-        opal_string_copy( (PDATA)->name, MPIDDTNAME, MPI_MAX_OBJECT_NAME );          \
+        /* name is a compile-time string literal; point at it rather than       \
+         * copying, since the heap name buffer is not allocated for predefined   \
+         * datatypes until ompi_datatype_init() finishes (see below). */         \
+        (PDATA)->name = (char *) (MPIDDTNAME);                                        \
     } while(0)
 
 #define DECLARE_MPI2_COMPOSED_BLOCK_DDT( PDATA, MPIDDT, MPIDDTNAME, MPIType, FLAGS ) \
@@ -478,14 +501,15 @@ opal_pointer_array_t ompi_datatype_f_to_c_table = {{0}};
         ptype->super.desc.desc = NULL;                                               \
         ptype->super.opt_desc.desc = NULL;                                           \
         OBJ_RELEASE( ptype );                                                        \
-        opal_string_copy( (PDATA)->name, (MPIDDTNAME), MPI_MAX_OBJECT_NAME );        \
+        (PDATA)->name = (char *) (MPIDDTNAME);                                        \
     } while(0)
 
 #define DECLARE_MPI_SYNONYM_DDT( PDATA, MPIDDTNAME, PORIGDDT)                        \
     do {                                                                             \
         /* just memcpy as it's easier this way */                                    \
         memcpy( (PDATA), (PORIGDDT), sizeof(ompi_datatype_t) );                      \
-        opal_string_copy( (PDATA)->name, MPIDDTNAME, MPI_MAX_OBJECT_NAME );          \
+        /* override the name pointer copied by the memcpy above */                   \
+        (PDATA)->name = (char *) (MPIDDTNAME);                                        \
         /* forget the language flag */                                               \
         (PDATA)->super.flags &= ~OMPI_DATATYPE_FLAG_DATA_LANGUAGE;                   \
         (PDATA)->super.flags &= ~OPAL_DATATYPE_FLAG_PREDEFINED;                      \
@@ -501,6 +525,13 @@ int32_t ompi_datatype_init( void )
     int ret = OMPI_SUCCESS;
 
     opal_datatype_init();
+
+    (void) mca_base_var_register(
+        "ompi", "datatype", NULL, "consolidate_threshold",
+        "Minimum count for MPI_Pack and MPI_Unpack to consolidate count/datatype into a "
+        "temporary contiguous datatype",
+        MCA_BASE_VAR_TYPE_INT, NULL, 0, 0, OPAL_INFO_LVL_9, MCA_BASE_VAR_SCOPE_READONLY,
+        &ompi_datatype_consolidate_threshold);
 
     /* Create the f2c translation table */
     OBJ_CONSTRUCT(&ompi_datatype_f_to_c_table, opal_pointer_array_t);
@@ -700,6 +731,24 @@ int32_t ompi_datatype_init( void )
         }
     }
 
+    /* Each predefined datatype's name currently points at a compile-time string
+     * literal (from its static initializer or the DECLARE_* macros above).
+     * Replace it with a writable heap buffer sized to the MPI Forum ABI maximum
+     * so that MPI_Type_set_name() can store a full-length name into a predefined
+     * datatype without writing through a read-only literal.  Predefined
+     * datatypes live for the lifetime of the process (ompi_datatype_finalize()
+     * never destructs them), so these buffers are intentionally never freed. */
+    for( i = 0; i < ompi_datatype_number_of_predefined_data; i++ ) {
+        ompi_datatype_t* datatype =
+            (ompi_datatype_t*)opal_pointer_array_get_item(&ompi_datatype_f_to_c_table, i );
+        char* heap_name = (char*)malloc(OMPI_MPI_MAX_OBJECT_NAME_ABI);
+        if( NULL == heap_name ) {
+            return OMPI_ERR_OUT_OF_RESOURCE;
+        }
+        opal_string_copy(heap_name, datatype->name, OMPI_MPI_MAX_OBJECT_NAME_ABI);
+        datatype->name = heap_name;
+    }
+
     /* get a reference to the attributes subsys */
     ret = ompi_attr_get_ref();
     if (OMPI_SUCCESS != ret) {
@@ -753,15 +802,15 @@ int ompi_datatype_safeguard_pointer_debug_breakpoint( const void* actual_ptr, in
  * Data dumping functions
  ********************************************************/
 
-static int _ompi_dump_data_flags( unsigned short usflags, char* ptr, size_t length )
+static int _ompi_dump_data_flags(uint32_t flags, char *ptr, size_t length)
 {
     int index = 0;
     if( length < 22 ) return 0;
     /* The lower-level part is the responsibility of opal_datatype_dump_data_flags */
-    index += opal_datatype_dump_data_flags (usflags, ptr, length);
+    index += opal_datatype_dump_data_flags(flags, ptr, length);
 
     /* Which kind of datatype is that */
-    switch( usflags & OMPI_DATATYPE_FLAG_DATA_LANGUAGE ) {
+    switch( flags & OMPI_DATATYPE_FLAG_DATA_LANGUAGE ) {
     case OMPI_DATATYPE_FLAG_DATA_C:
         ptr[12] = ' '; ptr[13] = 'C'; ptr[14] = ' '; break;
     case OMPI_DATATYPE_FLAG_DATA_CPP:
@@ -769,11 +818,11 @@ static int _ompi_dump_data_flags( unsigned short usflags, char* ptr, size_t leng
     case OMPI_DATATYPE_FLAG_DATA_FORTRAN:
         ptr[12] = 'F'; ptr[13] = '7'; ptr[14] = '7'; break;
     default:
-        if( usflags & OMPI_DATATYPE_FLAG_PREDEFINED ) {
+        if( flags & OMPI_DATATYPE_FLAG_PREDEFINED ) {
             ptr[12] = 'E'; ptr[13] = 'R'; ptr[14] = 'R'; break;
         }
     }
-    switch( usflags & OMPI_DATATYPE_FLAG_DATA_TYPE ) {
+    switch( flags & OMPI_DATATYPE_FLAG_DATA_TYPE ) {
     case OMPI_DATATYPE_FLAG_DATA_INT:
         ptr[17] = 'I'; ptr[18] = 'N'; ptr[19] = 'T'; break;
     case OMPI_DATATYPE_FLAG_DATA_FLOAT:
@@ -781,7 +830,7 @@ static int _ompi_dump_data_flags( unsigned short usflags, char* ptr, size_t leng
     case OMPI_DATATYPE_FLAG_DATA_COMPLEX:
         ptr[17] = 'C'; ptr[18] = 'P'; ptr[19] = 'L'; break;
     default:
-        if( usflags & OMPI_DATATYPE_FLAG_PREDEFINED ) {
+        if( flags & OMPI_DATATYPE_FLAG_PREDEFINED ) {
             ptr[17] = 'E'; ptr[18] = 'R'; ptr[19] = 'R'; break;
         }
     }
@@ -801,18 +850,21 @@ void ompi_datatype_dump( const ompi_datatype_t* pData )
     index += snprintf( buffer, length - index,
                        "Datatype %p[%s] id %d size %" PRIsize_t " align %u opal_id %u length %" PRIsize_t " used %" PRIsize_t "\n"
                        "true_lb %td true_ub %td (true_extent %td) lb %td ub %td (extent %td)\n"
-                       "nbElems %" PRIsize_t " loops %u flags %X (",
+                       "nbElems %" PRIsize_t " stack_depth %u flags %X (",
                        (void*)pData, pData->name, pData->id,
                        pData->super.size, pData->super.align, (uint32_t)pData->super.id, pData->super.desc.length, pData->super.desc.used,
                        pData->super.true_lb, pData->super.true_ub, pData->super.true_ub - pData->super.true_lb,
                        pData->super.lb, pData->super.ub, pData->super.ub - pData->super.lb,
-                       pData->super.nbElems, pData->super.loops, (int)pData->super.flags );
+                       pData->super.nbElems, pData->super.stack_depth, (unsigned int) pData->super.flags );
     /* dump the flags */
     if( ompi_datatype_is_predefined(pData) ) {
         index += snprintf( buffer + index, length - index, "predefined " );
     } else {
         if( pData->super.flags & OPAL_DATATYPE_FLAG_COMMITTED ) index += snprintf( buffer + index, length - index, "committed " );
         if( pData->super.flags & OPAL_DATATYPE_FLAG_CONTIGUOUS) index += snprintf( buffer + index, length - index, "contiguous " );
+        if( pData->super.flags & OPAL_DATATYPE_FLAG_COUNT_OPTIMIZABLE ) {
+            index += snprintf( buffer + index, length - index, "count-boundary " );
+        }
     }
     index += snprintf( buffer + index, length - index, ")" );
     index += _ompi_dump_data_flags( pData->super.flags, buffer + index, length - index );

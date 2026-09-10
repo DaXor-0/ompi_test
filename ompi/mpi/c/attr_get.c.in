@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -30,7 +31,7 @@
 #include "ompi/attribute/attribute.h"
 #include "ompi/memchecker.h"
 
-PROTOTYPE ERROR_CLASS attr_get(COMM comm, INT keyval, BUFFER_OUT attribute_val, INT_OUT flag)
+PROTOTYPE ERROR_CLASS attr_get(COMM comm, ATTR_KEY keyval, BUFFER_OUT attribute_val, INT_OUT flag)
 {
     int ret;
 

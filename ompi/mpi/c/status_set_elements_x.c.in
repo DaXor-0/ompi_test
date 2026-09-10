@@ -21,6 +21,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -32,7 +33,7 @@
 #include "ompi/datatype/ompi_datatype.h"
 #include "ompi/memchecker.h"
 
-PROTOTYPE ERROR_CLASS status_set_elements_x(STATUS_OUT status, DATATYPE datatype, PARTITIONED_COUNT count)
+PROTOTYPE ERROR_CLASS status_set_elements_x(STATUS_INOUT status, DATATYPE datatype, PARTITIONED_COUNT count)
 {
     int rc = MPI_SUCCESS;
     size_t size;

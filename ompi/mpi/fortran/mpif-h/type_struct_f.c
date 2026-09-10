@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -39,7 +40,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TYPE_STRUCT,
                            pmpi_type_struct,
                            pmpi_type_struct_,
                            pmpi_type_struct__,
-                           pompi_type_struct_f,
+                           ompi_type_struct_f,
                            (MPI_Fint *count, MPI_Fint *array_of_blocklengths, MPI_Fint *array_of_displacements, MPI_Fint *array_of_types, MPI_Fint *newtype, MPI_Fint *ierr),
                            (count, array_of_blocklengths, array_of_displacements, array_of_types, newtype, ierr) )
 #endif
@@ -54,17 +55,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TYPE_STRUCT,
 #pragma weak MPI_Type_struct_f = ompi_type_struct_f
 #pragma weak MPI_Type_struct_f08 = ompi_type_struct_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_TYPE_STRUCT,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_TYPE_STRUCT,
                            mpi_type_struct,
                            mpi_type_struct_,
                            mpi_type_struct__,
                            ompi_type_struct_f,
                            (MPI_Fint *count, MPI_Fint *array_of_blocklengths, MPI_Fint *array_of_displacements, MPI_Fint *array_of_types, MPI_Fint *newtype, MPI_Fint *ierr),
                            (count, array_of_blocklengths, array_of_displacements, array_of_types, newtype, ierr) )
-#else
-#define ompi_type_struct_f pompi_type_struct_f
-#endif
 #endif
 
 

@@ -18,11 +18,13 @@
  * Copyright (c) 2015-2017 Intel, Inc. All rights reserved.
  * Copyright (c) 2021      FUJITSU LIMITED.  All rights reserved.
  * Copyright (c) 2023      NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2016      Amazon.com, Inc. or its affiliates.  All Rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  *
  * This file is included at the bottom of opal_config.h, and is
  * therefore a) after all the #define's that were output from
@@ -230,6 +232,22 @@
 #    define __opal_attribute_weak_alias__(a)
 #endif
 
+/*
+ * A plain weak definition, as distinct from a weak *alias*.
+ *
+ * Mach-O cannot express a weak alias at all -- there is no way to mark a
+ * ".set" alias as a weak definition -- so a platform without weak aliases
+ * has to define the public MPI_* symbol as a real (weak) function that
+ * forwards to the strong PMPI_* one.  This is the attribute that marks such
+ * a definition weak, so that a profiling library's strong MPI_* still
+ * overrides it.
+ */
+#if OPAL_HAVE_WEAK_SYMBOLS
+#    define __opal_attribute_weak__ __attribute__((__weak__))
+#else
+#    define __opal_attribute_weak__
+#endif
+
 #if OPAL_HAVE_ATTRIBUTE_CONSTRUCTOR
 #    define __opal_attribute_constructor__ __attribute__((__constructor__))
 #else
@@ -393,19 +411,6 @@
 
 #    ifndef HAVE_VSNPRINTF
 #        define vsnprintf opal_vsnprintf
-#    endif
-
-/*
- * Some platforms (Solaris) have a broken qsort implementation.  Work
- * around by using our own.
- */
-#    if OPAL_HAVE_BROKEN_QSORT
-#        ifdef qsort
-#            undef qsort
-#        endif
-
-#        include "opal/util/qsort.h"
-#        define qsort opal_qsort
 #    endif
 
 /*

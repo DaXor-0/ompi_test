@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 
@@ -33,7 +34,7 @@
 #include "ompi/runtime/ompi_spc.h"
 
 PROTOTYPE ERROR_CLASS recv(BUFFER_OUT buf, COUNT count, DATATYPE type,
-                           INT source, INT tag, COMM comm, STATUS_OUT status)
+                           SOURCE source, TAG tag, COMM comm, STATUS_OUT status)
 {
     int rc = MPI_SUCCESS;
 

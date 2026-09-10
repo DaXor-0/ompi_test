@@ -25,6 +25,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -39,7 +40,7 @@
 
 PROTOTYPE ERROR_CLASS waitsome(INT incount, REQUEST_INOUT requests:incount,
                                INT_OUT outcount, INT_OUT indices:incount,
-                               STATUS_OUT statuses:incount)
+                               STATUS_OUT statuses:incount:*outcount)
 {
     SPC_RECORD(OMPI_SPC_WAITSOME, 1);
 

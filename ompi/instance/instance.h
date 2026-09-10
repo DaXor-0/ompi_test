@@ -7,6 +7,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #if !defined(OMPI_INSTANCE_H)
@@ -96,6 +97,22 @@ struct ompi_predefined_instance_t {
     char padding[PREDEFINED_INSTANCE_PAD - sizeof(ompi_instance_t)];
 };
 typedef struct ompi_predefined_instance_t ompi_predefined_instance_t;
+
+/**
+ * MPI extensions initialization function type
+ */
+typedef int (*ompi_mpiext_init_fn_t)(void);
+
+/**
+ * @brief Register MPI extensions initialization function
+ *
+ * This function is called by libmpi to register the mpiext initialization
+ * function with libopen_mpi. This avoids a circular dependency between
+ * libopen_mpi and libmpi.
+ *
+ * @param init_fn Function pointer to mpiext init function
+ */
+OMPI_DECLSPEC void ompi_mpi_instance_register_mpiext_init(ompi_mpiext_init_fn_t init_fn);
 
 /**
  * @brief NULL instance

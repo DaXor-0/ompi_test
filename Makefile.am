@@ -21,6 +21,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # There is an assumption in config/Makefile.am that config is the first
@@ -28,9 +29,26 @@
 # be required.
 SUBDIRS = config contrib 3rd-party $(MCA_PROJECT_SUBDIRS) test docs
 DIST_SUBDIRS = config contrib 3rd-party $(MCA_PROJECT_DIST_SUBDIRS) test docs
-EXTRA_DIST = README.md VERSION LICENSE autogen.pl AUTHORS
+EXTRA_DIST = README.md VERSION LICENSE autogen.pl AUTHORS \
+        requirements.txt \
+        specs/mpi-abi-tests/spec.md \
+        specs/mpi-abi-tests/tasks.md
 
 include examples/Makefile.include
+
+if PROJECT_OMPI
+check-abi:
+	$(MAKE) $(AM_MAKEFLAGS) -C ompi/test/mpi-abi check-abi
+
+check-abi-mpich:
+	$(MAKE) $(AM_MAKEFLAGS) -C ompi/test/mpi-abi check-abi-mpich
+else
+check-abi:
+	@echo "SKIP: check-abi requires the OMPI project"
+
+check-abi-mpich:
+	@echo "SKIP: check-abi-mpich requires the OMPI project"
+endif
 
 dist-hook:
 	env LS_COLORS= sh "$(top_srcdir)/config/distscript.sh" "$(top_srcdir)" "$(distdir)" "$(OMPI_REPO_REV)"
@@ -48,7 +66,8 @@ install-exec-hook:
 	        --top_builddir=$(top_builddir) \
 	        --top_srcdir=$(top_srcdir) \
 	        --objext=$(OBJEXT) \
-	        --skipdir=3rd-party ; \
+	        --skipdir=3rd-party \
+	        --skipdir=test ; \
 	fi
 
 ACLOCAL_AMFLAGS = -I config

@@ -19,6 +19,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This makefile.am does not stand on its own - it is included from ompi/Makefile.am
@@ -34,18 +35,18 @@ headers += \
         request/grequestx.h
 endif
 
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         request/grequest.c \
         request/request.c \
         request/req_test.c \
         request/req_wait.c
 
 if WANT_FT_MPI
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
 	request/req_ft.c
 endif # WANT_FT_MPI
 
 if OMPI_ENABLE_GREQUEST_EXTENSIONS
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         request/grequestx.c
 endif

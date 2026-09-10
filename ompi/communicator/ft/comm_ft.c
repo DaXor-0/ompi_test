@@ -12,9 +12,11 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi/runtime/params.h"
+#include "ompi/runtime/mpiruntime.h"
 #include "ompi/group/group.h"
 #include "ompi/communicator/communicator.h"
 #include "ompi/op/op.h"
@@ -238,17 +240,17 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          "%s ompi: comm_shrink: Agreement on failed processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
 #if OPAL_ENABLE_DEBUG
-    start = PMPI_Wtime();
+    start = ompi_wtime();
 #endif
     opal_mutex_lock(&ompi_group_afp_mutex);
     ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &failed_group);
     opal_mutex_unlock(&ompi_group_afp_mutex);
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: group_inter: %g seconds",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
-    start = PMPI_Wtime();
+    start = ompi_wtime();
 #endif
     do {
         /* We need to create the list of alive processes. Thus, we don't care about
@@ -264,7 +266,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                                        comm->c_coll->coll_agree_module);
     } while( MPI_ERR_PROC_FAILED == rc );
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: AGREE: %g seconds",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
@@ -283,7 +285,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          "%s ompi: comm_shrink: Determine ranking for new communicator intra %d",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), OMPI_COMM_IS_INTRA(comm)));
 #if OPAL_ENABLE_DEBUG
-    start = PMPI_Wtime();
+    start = ompi_wtime();
 #endif
 
     /* Create 'alive' groups */
@@ -324,7 +326,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: GRP COMPUTATION: %g seconds\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
@@ -337,7 +339,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
                          "%s ompi: comm_shrink: Determine context id",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
 #if OPAL_ENABLE_DEBUG
-    start = PMPI_Wtime();
+    start = ompi_wtime();
 #endif
     rc = ompi_comm_nextcid( newcomp,  /* new communicator */
                             comm,     /* old comm */
@@ -354,7 +356,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: NEXT CID: %g seconds\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-start));
@@ -364,11 +366,11 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
      */
     /* --------------------------------------------------------- */
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d SHRUNK FROM %d",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMMUNICATOR %d SHRUNK FROM %d",
              ompi_comm_get_local_cid(newcomp),
              ompi_comm_get_local_cid(comm));
 #if OPAL_ENABLE_DEBUG
-    start = PMPI_Wtime();
+    start = ompi_wtime();
 #endif
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate( &newcomp, /* new communicator */
@@ -383,7 +385,7 @@ int ompi_comm_shrink_internal(ompi_communicator_t* comm, ompi_communicator_t** n
         goto cleanup;
     }
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
 #endif
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_shrink: COLL SELECT: %g seconds\n",
@@ -465,15 +467,15 @@ int ompi_comm_ishrink_internal(ompi_communicator_t* comm, ompi_communicator_t** 
                          "%s ompi: comm_ishrink: Agreement on failed processes",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
 #if OPAL_ENABLE_DEBUG
-    context->start = PMPI_Wtime();
+    context->start = ompi_wtime();
 #endif
     ompi_group_intersection(comm->c_remote_group, ompi_group_all_failed_procs, &context->failed_group);
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_ishrink: group_inter: %g seconds",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-context->start));
-    context->start = PMPI_Wtime();
+    context->start = ompi_wtime();
 #endif
     /* We need to create the list of alive processes. Thus, we don't care about
      * the value of flag, instead we are only using the globally consistent
@@ -515,7 +517,7 @@ static int ompi_comm_ishrink_check_agree(ompi_comm_request_t *request) {
 #endif
 
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_ishrink: AGREE: %g seconds",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-context->start));
@@ -558,7 +560,7 @@ static int ompi_comm_ishrink_check_agree(ompi_comm_request_t *request) {
                          "%s ompi: comm_ishrink: Determine ranking for new communicator",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
 #if OPAL_ENABLE_DEBUG
-    context->start = PMPI_Wtime();
+    context->start = ompi_wtime();
 #endif
 
     /* Create 'alive' groups */
@@ -634,7 +636,7 @@ static int ompi_comm_ishrink_check_setrank(ompi_comm_request_t *request) {
     }
 
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_ishrink: GRP COMPUTATION: %g seconds\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-context->start));
@@ -652,7 +654,7 @@ static int ompi_comm_ishrink_check_setrank(ompi_comm_request_t *request) {
                          "%s ompi: comm_ishrink: Determine context id",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME) ));
 #if OPAL_ENABLE_DEBUG
-    context->start = PMPI_Wtime();
+    context->start = ompi_wtime();
 #endif
     rc = ompi_comm_nextcid_nb( *context->newcomm, /* new communicator */
                                context->comm,     /* old comm */
@@ -692,7 +694,7 @@ static int ompi_comm_ishrink_check_cid(ompi_comm_request_t *request) {
         return rc;
     }
 #if OPAL_ENABLE_DEBUG
-    stop = PMPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_ishrink: NEXT CID: %g seconds\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-context->start));
@@ -708,11 +710,11 @@ static int ompi_comm_ishrink_check_cid(ompi_comm_request_t *request) {
     /* --------------------------------------------------------- */
     /* Set name for debugging purposes */
     ompi_communicator_t *newcomp = *context->newcomm;
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %d SHRUNK FROM %d",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMMUNICATOR %d SHRUNK FROM %d",
              ompi_comm_get_local_cid(newcomp),
              ompi_comm_get_local_cid(context->comm));
 #if OPAL_ENABLE_DEBUG
-    context->start = PMPI_Wtime();
+    context->start = ompi_wtime();
 #endif
     /* activate communicator and init coll-module */
     rc = ompi_comm_activate_nb( context->newcomm, /* new communicator */
@@ -752,7 +754,7 @@ static int ompi_comm_ishrink_check_activate(ompi_comm_request_t *request) {
         return rc;
     }
 #if OPAL_ENABLE_DEBUG
-    stop = MPI_Wtime();
+    stop = ompi_wtime();
     OPAL_OUTPUT_VERBOSE((10, ompi_ftmpi_output_handle,
                          "%s ompi: comm_ishrink: COLL SELECT: %g seconds\n",
                          OMPI_NAME_PRINT(OMPI_PROC_MY_NAME), stop-context->start));

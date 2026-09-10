@@ -19,6 +19,7 @@
  * Copyright (c) 2021      IBM Corporation.  All rights reserved.
  * Copyright (c) 2022      Amazon.com, Inc. or its affiliates.  All Rights reserved.
  * $COPYRIGHT$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  *
  * Additional copyrights may follow
  */
@@ -59,10 +60,6 @@ ceil_of_log2 (int val) {
     }
     return ret;
 }
-
-/* true/false */
-#define true 1
-#define false 0
 
 /* all collectives */
 #define NBC_ALLGATHER 0

@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_WIN_FLUSH_ALL,
                            pmpi_win_flush_all,
                            pmpi_win_flush_all_,
                            pmpi_win_flush_all__,
-                           pompi_win_flush_all_f,
+                           ompi_win_flush_all_f,
                            (MPI_Fint *win, MPI_Fint *ierr),
                            (win, ierr) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_WIN_FLUSH_ALL,
 #pragma weak MPI_Win_flush_all_f = ompi_win_flush_all_f
 #pragma weak MPI_Win_flush_all_f08 = ompi_win_flush_all_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_WIN_FLUSH_ALL,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_WIN_FLUSH_ALL,
                            mpi_win_flush_all,
                            mpi_win_flush_all_,
                            mpi_win_flush_all__,
                            ompi_win_flush_all_f,
                            (MPI_Fint *win, MPI_Fint *ierr),
                            (win, ierr) )
-#else
-#define ompi_win_flush_all_f pompi_win_flush_all_f
-#endif
 #endif
 
 

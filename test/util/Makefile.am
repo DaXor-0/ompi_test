@@ -23,6 +23,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 AM_CPPFLAGS = -I$(top_srcdir)/test/support
@@ -36,6 +37,7 @@ check_PROGRAMS = \
 	opal_path_nfs \
         opal_json \
         opal_sha256 \
+        mca_base_event_test \
 	opal_timer \
 	opal_string_copy \
 	opal_numtostr \
@@ -46,9 +48,7 @@ check_PROGRAMS = \
 	opal_environ \
 	opal_printf \
 	opal_uri \
-	opal_qsort \
 	opal_alfg \
-	opal_crc \
 	opal_fd \
 	opal_arch \
 	opal_cmd_line \
@@ -110,17 +110,9 @@ opal_uri_SOURCES = opal_uri.c
 opal_uri_LDADD = $(opal_test_ldadd)
 opal_uri_DEPENDENCIES = $(opal_test_ldadd)
 
-opal_qsort_SOURCES = opal_qsort.c
-opal_qsort_LDADD = $(opal_test_ldadd)
-opal_qsort_DEPENDENCIES = $(opal_test_ldadd)
-
 opal_alfg_SOURCES = opal_alfg.c
 opal_alfg_LDADD = $(opal_test_ldadd)
 opal_alfg_DEPENDENCIES = $(opal_test_ldadd)
-
-opal_crc_SOURCES = opal_crc.c
-opal_crc_LDADD = $(opal_test_ldadd)
-opal_crc_DEPENDENCIES = $(opal_test_ldadd)
 
 opal_fd_SOURCES = opal_fd.c
 opal_fd_LDADD = $(opal_test_ldadd)
@@ -190,7 +182,7 @@ opal_bit_ops_SOURCES = opal_bit_ops.c
 opal_bit_ops_LDADD = \
         $(top_builddir)/opal/lib@OPAL_LIB_NAME@.la \
         $(top_builddir)/test/support/libsupport.a
-opal_bit_ops_DEPENDENCIES = $(opal_path_nfs_LDADD)
+opal_bit_ops_DEPENDENCIES = $(opal_bit_ops_LDADD)
 
 opal_path_nfs_SOURCES = opal_path_nfs.c
 opal_path_nfs_LDADD = \
@@ -222,9 +214,14 @@ opal_sha256_LDADD = \
         $(top_builddir)/test/support/libsupport.a
 opal_sha256_DEPENDENCIES = $(opal_sha256_LDADD)
 
+mca_base_event_test_SOURCES = mca_base_event_test.c
+mca_base_event_test_LDADD = \
+        $(top_builddir)/opal/lib@OPAL_LIB_NAME@.la \
+        $(top_builddir)/test/support/libsupport.a
+mca_base_event_test_DEPENDENCIES = $(mca_base_event_test_LDADD)
+
 clean-local:
 	rm -f test_session_dir_out test-file opal_path_nfs.out
 
 distclean-local:
 	rm -rf *.dSYM .deps .libs *.out *.log *.o *.trs $(check_PROGRAMS) Makefile
-

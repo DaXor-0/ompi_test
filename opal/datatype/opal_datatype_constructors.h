@@ -25,6 +25,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #ifndef OPAL_DATATYPE_CONSTRUCTORS_H_HAS_BEEN_INCLUDED
@@ -192,7 +193,7 @@
 #    define OPAL_DATATYPE_HANDLE_UINT16(AV, NOTAV, FLAGS) \
         AV(uint128_t, OPAL_ALIGNMENT_INT128, UINT16, FLAGS)
 #else
-#    define OPAL_DATATYPE_HANDLE_UINT16(AV, NOTAV, FLAGS) NOTAV(INT16, FLAGS)
+#    define OPAL_DATATYPE_HANDLE_UINT16(AV, NOTAV, FLAGS) NOTAV(UINT16, FLAGS)
 #endif
 
 
@@ -277,11 +278,12 @@
 #    define OPAL_SIZEOF_FLOAT12 0
 #endif
 
-#if defined(HAVE__FLOAT128) &&  SIZEOF__FLOAT128 == 16
+/* Test feature values so a configuration that defines an unavailable type to 0 does not emit it. */
+#if defined(HAVE__FLOAT128) && HAVE__FLOAT128 && SIZEOF__FLOAT128 == 16
 #    define OPAL_DATATYPE_HANDLE_FLOAT16(AV, NOTAV, FLAGS) \
         AV(_Float128, OPAL_ALIGNMENT__FLOAT128, FLOAT16, FLAGS)
 #    define OPAL_SIZEOF_FLOAT16 SIZEOF__FLOAT128
-#elif defined(HAVE___FLOAT128) &&  SIZEOF___FLOAT128 == 16
+#elif defined(HAVE___FLOAT128) && HAVE___FLOAT128 && SIZEOF___FLOAT128 == 16
 #    define OPAL_DATATYPE_HANDLE_FLOAT16(AV, NOTAV, FLAGS) \
         AV(__float128, OPAL_ALIGNMENT___FLOAT128, FLOAT16, FLAGS)
 #    define OPAL_SIZEOF_FLOAT16 SIZEOF___FLOAT128

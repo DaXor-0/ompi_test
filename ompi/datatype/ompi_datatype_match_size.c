@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -28,7 +29,7 @@
 
 extern int32_t ompi_datatype_number_of_predefined_data;
 
-const ompi_datatype_t* ompi_datatype_match_size( size_t size, uint16_t datakind, uint16_t datalang )
+const ompi_datatype_t* ompi_datatype_match_size( size_t size, uint32_t datakind, uint32_t datalang )
 {
     int32_t i;
     const ompi_datatype_t* datatype;

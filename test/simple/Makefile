@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 PROGS = mpi_no_op mpi_barrier hello hello_nodename abort multi_abort comm_abort initial_errh simple_spawn \
 		concurrent_spawn spawn_multiple mpi_spin delayed_abort loop_spawn loop_child \
 		bad_exit bad_arg pubsub hello_barrier segv accept connect hello_output hello_show_help \
@@ -6,7 +7,8 @@ PROGS = mpi_no_op mpi_barrier hello hello_nodename abort multi_abort comm_abort 
 		debugger singleton_client_server intercomm_create spawn_tree init-exit77 mpi_info \
 		info_spawn server client ring binding badcoll attach xlib ompio_file_info \
 		no-disconnect nonzero interlib pinterlib add_host \
-		buffer_attach_detach_f08
+		buffer_attach_detach_f08 \
+		osc_ucx_bottom_accumulate
 
 all: $(PROGS)
 

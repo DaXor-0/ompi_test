@@ -11,6 +11,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This makefile.am does not stand on its own - it is included from ompi/Makefile.am
@@ -21,7 +22,7 @@ if WANT_PERUSE
 # do NOT want this nobase - we want the peruse stripped off...
 include_HEADERS += peruse/peruse.h
 
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         peruse/peruse.c \
 	peruse/peruse_module.c
 endif

@@ -16,14 +16,16 @@
  *                         reserved.
  * Copyright (c) 2016      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2023      Triad National Security, LLC. All rights
+ * Copyright (c) 2023-2026 Triad National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2025      NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -34,6 +36,7 @@
 #include "ompi/request/request.h"
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/mpi/fortran/base/fint_2_int.h"
+#include "ompi/runtime/ompi_mpit_events.h"
 
 
 int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
@@ -44,6 +47,45 @@ int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
     ompi_win_t *win;
     ompi_file_t *file;
     ompi_instance_t *instance;
+
+    /* Raise the MPI_T errhandler-invoked event (no-op when no tool is
+       listening or the producer is disabled).  The payload carries the
+       MPI_Errhandler handle and the handle of the MPI object the handler is
+       invoked on (both as opaque handle values; either is 0 when not available,
+       e.g. routing to a predefined handler before MPI_INIT). */
+    if (NULL != ompi_event_errhandler_invoked) {
+        struct {
+            int32_t  err_code;
+            int32_t  object_type;
+            uint64_t errhandler_handle;
+            uint64_t object_handle;
+        } payload;
+        /* Report object_type as the MPI_T_BIND_* binding kind of the object the
+           handler is invoked on, rather than the internal errhandler-type enum. */
+        int32_t object_bind;
+        switch (object_type) {
+        case OMPI_ERRHANDLER_TYPE_COMM:     object_bind = MPI_T_BIND_MPI_COMM;    break;
+        case OMPI_ERRHANDLER_TYPE_WIN:      object_bind = MPI_T_BIND_MPI_WIN;     break;
+        case OMPI_ERRHANDLER_TYPE_FILE:     object_bind = MPI_T_BIND_MPI_FILE;    break;
+        case OMPI_ERRHANDLER_TYPE_INSTANCE: object_bind = MPI_T_BIND_MPI_SESSION; break;
+        default:                            object_bind = MPI_T_BIND_NO_OBJECT;   break;
+        }
+        payload.err_code = (int32_t) err_code;
+        payload.object_type = object_bind;
+        /* XXX ABI: the MPI_Errhandler handle and the invoking object's handle
+           must match the registering MPI_T tool's ABI (ompi_mpit_callback_abi). */
+        if (OMPI_MPIT_ABI_OMPI == ompi_mpit_callback_abi) {
+            payload.errhandler_handle = (uint64_t) (uintptr_t) errhandler;
+            payload.object_handle = (uint64_t) (uintptr_t) mpi_object;
+        } else {
+            /* TODO ABI (#13280): set the MPI Standard ABI handle values -- the
+               MPI_Errhandler, and mpi_object converted per object_type
+               (MPI_Comm / MPI_Win / MPI_File / MPI_Session). */
+            payload.errhandler_handle = 0;
+            payload.object_handle = 0;
+        }
+        mca_base_event_raise(ompi_event_errhandler_invoked, NULL, &payload);
+    }
 
     /* If we got no errorhandler, then route the error to the appropriate
      * predefined error handler */
@@ -85,6 +127,9 @@ int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
         comm = (ompi_communicator_t *) mpi_object;
         switch (errhandler->eh_lang) {
         case OMPI_ERRHANDLER_LANG_C:
+            if (NULL != errhandler->eh_converter_fn) {
+                errhandler->eh_converter_fn((void *)&comm, object_type, &err_code);
+            }
             if (NULL != errhandler->eh_comm_fn) {
                 errhandler->eh_comm_fn(&comm, &err_code, message, NULL);
             }
@@ -104,6 +149,9 @@ int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
         win = (ompi_win_t *) mpi_object;
         switch (errhandler->eh_lang) {
         case OMPI_ERRHANDLER_LANG_C:
+            if (NULL != errhandler->eh_converter_fn) {
+                errhandler->eh_converter_fn((void *)&win, object_type, &err_code);
+            }
             if (NULL != errhandler->eh_win_fn) {
                 errhandler->eh_win_fn(&win, &err_code, message, NULL);
             }
@@ -123,6 +171,9 @@ int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
         file = (ompi_file_t *) mpi_object;
         switch (errhandler->eh_lang) {
         case OMPI_ERRHANDLER_LANG_C:
+            if (NULL != errhandler->eh_converter_fn) {
+                errhandler->eh_converter_fn((void *)&file, object_type, &err_code);
+            }
             if (NULL != errhandler->eh_file_fn) {
                 errhandler->eh_file_fn(&file, &err_code, message, NULL);
             }
@@ -142,6 +193,9 @@ int ompi_errhandler_invoke(ompi_errhandler_t *errhandler, void *mpi_object,
         instance = (ompi_instance_t *) mpi_object;
         switch (errhandler->eh_lang) {
         case OMPI_ERRHANDLER_LANG_C:
+            if (NULL != errhandler->eh_converter_fn) {
+                errhandler->eh_converter_fn((void *)&instance, object_type, &err_code);
+            }
             if (NULL != errhandler->eh_instance_fn) {
                 errhandler->eh_instance_fn(&instance, &err_code, message, NULL);
             }
@@ -223,12 +277,23 @@ int ompi_errhandler_request_invoke(int count,
                                       mpi_object.comm->errhandler_type,
                                       ec, message);
         break;
-    case OMPI_REQUEST_IO:
-        return ompi_errhandler_invoke(mpi_object.file->error_handler,
-                                      mpi_object.file,
-                                      mpi_object.file->errhandler_type,
+    case OMPI_REQUEST_IO: {
+        /* An IO request whose file handle could not be determined when it was
+         * created -- an ompio_file_t that no MPI_File_open owns, as the
+         * sharedfp components allocate for their own bookkeeping -- still has
+         * to reach an error handler rather than a NULL dereference.  Falling
+         * back to MPI_FILE_NULL's handler mirrors what
+         * ompi_grequest_construct does with MPI_COMM_WORLD for a generalized
+         * request.
+         */
+        struct ompi_file_t *file = (NULL != mpi_object.file) ? mpi_object.file
+                                                            : &ompi_mpi_file_null.file;
+        return ompi_errhandler_invoke(file->error_handler,
+                                      file,
+                                      file->errhandler_type,
                                       ec, message);
         break;
+    }
     case OMPI_REQUEST_WIN:
         return ompi_errhandler_invoke(mpi_object.win->error_handler,
                                       mpi_object.win,

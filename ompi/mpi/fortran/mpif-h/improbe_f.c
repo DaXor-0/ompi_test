@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -42,7 +43,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_IMPROBE,
                             pmpi_improbe,
                             pmpi_improbe_,
                             pmpi_improbe__,
-                            pompi_improbe_f,
+                            ompi_improbe_f,
                             (MPI_Fint *source, MPI_Fint *tag, MPI_Fint *comm, ompi_fortran_logical_t *flag,
                              MPI_Fint *message, MPI_Fint *status, MPI_Fint *ierr),
                             (source, tag, comm, flag, message, status, ierr) )
@@ -58,8 +59,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_IMPROBE,
 #pragma weak MPI_Improbe_f = ompi_improbe_f
 #pragma weak MPI_Improbe_f08 = ompi_improbe_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_IMPROBE,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_IMPROBE,
                             mpi_improbe,
                             mpi_improbe_,
                             mpi_improbe__,
@@ -67,9 +67,6 @@ OMPI_GENERATE_F77_BINDINGS (MPI_IMPROBE,
                             (MPI_Fint *source, MPI_Fint *tag, MPI_Fint *comm, ompi_fortran_logical_t *flag,
                              MPI_Fint *message, MPI_Fint *status, MPI_Fint *ierr),
                             (source, tag, comm, flag, message, status, ierr) )
-#else
-#define ompi_improbe_f pompi_improbe_f
-#endif
 #endif
 
 

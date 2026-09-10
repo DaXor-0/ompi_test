@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -38,7 +39,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_IEXSCAN,
                             pmpi_iexscan,
                             pmpi_iexscan_,
                             pmpi_iexscan__,
-                            pompi_iexscan_f,
+                            ompi_iexscan_f,
                             (char *sendbuf, char *recvbuf, MPI_Fint *count, MPI_Fint *datatype, MPI_Fint *op, MPI_Fint *comm, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, recvbuf, count, datatype, op, comm, request, ierr) )
 #endif
@@ -53,17 +54,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_IEXSCAN,
 #pragma weak MPI_Iexscan_f = ompi_iexscan_f
 #pragma weak MPI_Iexscan_f08 = ompi_iexscan_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_IEXSCAN,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_IEXSCAN,
                             mpi_iexscan,
                             mpi_iexscan_,
                             mpi_iexscan__,
                             ompi_iexscan_f,
                             (char *sendbuf, char *recvbuf, MPI_Fint *count, MPI_Fint *datatype, MPI_Fint *op, MPI_Fint *comm, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, recvbuf, count, datatype, op, comm, request, ierr) )
-#else
-#define ompi_iexscan_f pompi_iexscan_f
-#endif
 #endif
 
 

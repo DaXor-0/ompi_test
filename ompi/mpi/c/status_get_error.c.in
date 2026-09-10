@@ -8,6 +8,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -18,7 +19,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/memchecker.h"
 
-PROTOTYPE ERROR_CLASS status_get_error(STATUS status, INT_OUT error)
+PROTOTYPE ERROR_CLASS status_get_error(STATUS status, ERROR_CODE_OUT error)
 {
     int rc      = MPI_SUCCESS;
 

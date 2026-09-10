@@ -9,6 +9,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This component provide support for the Advanced Vector Extensions (AVX)
@@ -85,8 +86,8 @@ endif
 mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_op_avx_la_SOURCES = $(sources)
-mca_op_avx_la_LIBADD = $(specialized_op_libs)
-mca_op_avx_la_LDFLAGS = -module -avoid-version $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+mca_op_avx_la_LIBADD = $(specialized_op_libs) $(top_builddir)/ompi/libopen_mpi.la
+mca_op_avx_la_LDFLAGS = -module -avoid-version
 
 
 # Specific information for static builds.

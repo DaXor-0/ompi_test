@@ -13,6 +13,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 AM_CPPFLAGS = $(topo_treematch_CPPFLAGS)
@@ -43,7 +44,7 @@ mcacomponentdir = $(pkglibdir)
 mcacomponent_LTLIBRARIES = $(component)
 mca_topo_treematch_la_SOURCES = $(component_sources)
 mca_topo_treematch_la_LDFLAGS = -module -avoid-version $(topo_treematch_LDFLAGS)
-mca_topo_treematch_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la $(topo_treematch_LIBS)
+mca_topo_treematch_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la $(topo_treematch_LIBS)
 
 noinst_LTLIBRARIES = $(lib)
 libmca_topo_treematch_la_SOURCES = $(lib_sources)

@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 
@@ -29,7 +30,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/memchecker.h"
 
-PROTOTYPE ERROR_CLASS topo_test(COMM comm, INT_OUT status)
+PROTOTYPE ERROR_CLASS topo_test(COMM comm, TOPO_OUT status)
 {
     MEMCHECKER(
         memchecker_comm(comm);

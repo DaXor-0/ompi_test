@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  *
  * These symbols are in a file by themselves to provide nice linker
  * semantics.  Since linkers generally pull in symbols by object
@@ -42,6 +43,7 @@ bool mca_fbtl_posix_write_datasieving = true;
 size_t mca_fbtl_posix_max_block_size  = 1048576;  // 1MB
 size_t mca_fbtl_posix_max_gap_size    = 4096;     // Size of a block in many linux fs
 size_t mca_fbtl_posix_max_tmpbuf_size = 67108864; // 64 MB
+int mca_fbtl_posix_max_aio_reqs       = 0;        // 0: ask the system
 /*
  * Private functions
  */
@@ -130,6 +132,15 @@ static int register_component(void)
                                            MCA_BASE_VAR_SCOPE_READONLY,
                                            &mca_fbtl_posix_write_datasieving );
 
-    
+    mca_fbtl_posix_max_aio_reqs = 0;
+    (void) mca_base_component_var_register(&mca_fbtl_posix_component.fbtlm_version,
+                                           "max_aio_reqs", "Maximum number of asynchronous I/O operations to keep outstanding "
+                                           "per process. Default: 0, meaning ask the operating system what it allows one "
+                                           "process to have outstanding.",
+                                           MCA_BASE_VAR_TYPE_INT, NULL, 0, 0,
+                                           OPAL_INFO_LVL_9,
+                                           MCA_BASE_VAR_SCOPE_READONLY,
+                                           &mca_fbtl_posix_max_aio_reqs );
+
     return OMPI_SUCCESS;
 }

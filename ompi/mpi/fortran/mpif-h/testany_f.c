@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TESTANY,
                            pmpi_testany,
                            pmpi_testany_,
                            pmpi_testany__,
-                           pompi_testany_f,
+                           ompi_testany_f,
                            (MPI_Fint *count, MPI_Fint *array_of_requests, MPI_Fint *indx, ompi_fortran_logical_t *flag, MPI_Fint *status, MPI_Fint *ierr),
                            (count, array_of_requests, indx, flag, status, ierr) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TESTANY,
 #pragma weak MPI_Testany_f = ompi_testany_f
 #pragma weak MPI_Testany_f08 = ompi_testany_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_TESTANY,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_TESTANY,
                            mpi_testany,
                            mpi_testany_,
                            mpi_testany__,
                            ompi_testany_f,
                            (MPI_Fint *count, MPI_Fint *array_of_requests, MPI_Fint *indx, ompi_fortran_logical_t *flag, MPI_Fint *status, MPI_Fint *ierr),
                            (count, array_of_requests, indx, flag, status, ierr) )
-#else
-#define ompi_testany_f pompi_testany_f
-#endif
 #endif
 
 

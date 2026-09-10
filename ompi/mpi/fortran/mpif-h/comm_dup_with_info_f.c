@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_DUP_WITH_INFO,
                             pmpi_comm_dup_with_info,
                             pmpi_comm_dup_with_info_,
                             pmpi_comm_dup_with_info__,
-                            pompi_comm_dup_with_info_f,
+                            ompi_comm_dup_with_info_f,
                             (MPI_Fint *comm, MPI_Fint *info, MPI_Fint *newcomm, MPI_Fint *ierr),
                             (comm, info, newcomm, ierr) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_DUP_WITH_INFO,
 #pragma weak MPI_Comm_dup_with_info_f = ompi_comm_dup_with_info_f
 #pragma weak MPI_Comm_dup_with_info_f08 = ompi_comm_dup_with_info_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_COMM_DUP_WITH_INFO,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_COMM_DUP_WITH_INFO,
                             mpi_comm_dup_with_info,
                             mpi_comm_dup_with_info_,
                             mpi_comm_dup_with_info__,
                             ompi_comm_dup_with_info_f,
                             (MPI_Fint *comm, MPI_Fint *info, MPI_Fint *newcomm, MPI_Fint *ierr),
                             (comm, info, newcomm, ierr) )
-#else
-#define ompi_comm_dup_with_info_f pompi_comm_dup_with_info_f
-#endif
 #endif
 
 

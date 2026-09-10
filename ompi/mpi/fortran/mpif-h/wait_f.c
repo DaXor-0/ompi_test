@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -38,7 +39,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_WAIT,
                            pmpi_wait,
                            pmpi_wait_,
                            pmpi_wait__,
-                           pompi_wait_f,
+                           ompi_wait_f,
                            (MPI_Fint *request, MPI_Fint *status, MPI_Fint *ierr),
                            (request, status, ierr) )
 #endif
@@ -53,17 +54,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_WAIT,
 #pragma weak MPI_Wait_f = ompi_wait_f
 #pragma weak MPI_Wait_f08 = ompi_wait_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_WAIT,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_WAIT,
                            mpi_wait,
                            mpi_wait_,
                            mpi_wait__,
                            ompi_wait_f,
                            (MPI_Fint *request, MPI_Fint *status, MPI_Fint *ierr),
                            (request, status, ierr) )
-#else
-#define ompi_wait_f pompi_wait_f
-#endif
 #endif
 
 

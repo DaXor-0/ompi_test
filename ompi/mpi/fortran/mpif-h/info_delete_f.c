@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_INFO_DELETE,
                             pmpi_info_delete,
                             pmpi_info_delete_,
                             pmpi_info_delete__,
-                            pompi_info_delete_f,
+                            ompi_info_delete_f,
                             (MPI_Fint *info, char *key, MPI_Fint *ierr, int key_len),
                             (info, key, ierr, key_len) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_INFO_DELETE,
 #pragma weak MPI_Info_delete_f = ompi_info_delete_f
 #pragma weak MPI_Info_delete_f08 = ompi_info_delete_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_INFO_DELETE,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_INFO_DELETE,
                             mpi_info_delete,
                             mpi_info_delete_,
                             mpi_info_delete__,
                             ompi_info_delete_f,
                             (MPI_Fint *info, char *key, MPI_Fint *ierr, int key_len),
                             (info, key, ierr, key_len) )
-#else
-#define ompi_info_delete_f pompi_info_delete_f
-#endif
 #endif
 
 

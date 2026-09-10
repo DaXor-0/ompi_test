@@ -110,6 +110,30 @@ jobs:
     - name: Add Open MPI to PATH
       run: echo "${PWD}/install/bin" >> "$GITHUB_PATH"
 
+    - name: Run the MPI Standard ABI test suite
+      # Run "make check-abi" after "make install": unlike the "check-fast"
+      # suite that "make check" runs above, check-abi launches real MPI jobs
+      # and so needs the installed mpirun (now on PATH).  VERBOSE=1 dumps each
+      # failing probe's command + output (Automake-style) so failures here are
+      # diagnosable from the CI log.
+      env:
+        # GitHub runners have very few cores, so the dynamic-process probes
+        # (MPI_Comm_spawn / MPI_Comm_spawn_multiple) have no free slots to
+        # spawn into ("All nodes which are allocated for this job are already
+        # filled").  Let prte oversubscribe so it can place the spawned
+        # children.
+        PRTE_MCA_rmaps_default_mapping_policy: ":OVERSUBSCRIBE"
+      run: make -C ompi/test/mpi-abi check-abi VERBOSE=1
+
+    - name: Run the tests that need mpirun
+      # Like check-abi above, this runs after "make install": "make check"
+      # can only run non-MPI tests and MPI singletons (Automake runs each
+      # test binary directly), and the build-tree mpirun is only a wrapper
+      # that exec's the *installed* prterun.  Nothing else in CI enables
+      # the asynchronous modex, so without this step that code path gets
+      # no coverage at all.
+      run: make -C ompi/test/mpirun check-mpirun
+
     - name: Build all examples
       run: |
         cd examples
@@ -124,6 +148,12 @@ jobs:
         # extension (this skips sources, Makefiles, and macOS .dSYM
         # bundles).  OpenSHMEM examples are launched with oshrun; all
         # others with mpirun.
+        #
+        # Every example should finish in seconds.  The launcher-level
+        # --timeout turns a hung example (e.g., a rank deadlocked in a
+        # PMIx fence, issue #14125) into a prompt failure of that one
+        # example instead of stalling the job until the 6-hour GitHub
+        # runner timeout kills it.
         for exe in *; do
           [ -f "$exe" ] && [ -x "$exe" ] || continue
           case "$exe" in *.*) continue ;; esac
@@ -132,7 +162,7 @@ jobs:
             *)                 launcher=mpirun ;;
           esac
           echo "==== Running $exe (via $launcher) ===="
-          if ! "$launcher" --map-by ppr:1:core "./$exe"; then
+          if ! "$launcher" --timeout 300 --map-by ppr:1:core "./$exe"; then
             echo "==== $exe FAILED"
             status=1
           fi

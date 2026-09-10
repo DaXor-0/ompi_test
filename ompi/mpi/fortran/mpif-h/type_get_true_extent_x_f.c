@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -39,7 +40,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TYPE_GET_TRUE_EXTENT_X,
                            pmpi_type_get_true_extent_x,
                            pmpi_type_get_true_extent_x_,
                            pmpi_type_get_true_extent_x__,
-                           pompi_type_get_true_extent_x_f,
+                           ompi_type_get_true_extent_x_f,
                            (MPI_Fint *datatype, MPI_Count *true_lb, MPI_Count *true_extent, MPI_Fint *ierr),
                            (datatype, true_lb, true_extent, ierr) )
 #endif
@@ -54,17 +55,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_TYPE_GET_TRUE_EXTENT_X,
 #pragma weak MPI_Type_get_true_extent_x_f = ompi_type_get_true_extent_x_f
 #pragma weak MPI_Type_get_true_extent_x_f08 = ompi_type_get_true_extent_x_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_TYPE_GET_TRUE_EXTENT_X,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_TYPE_GET_TRUE_EXTENT_X,
                            mpi_type_get_true_extent_x,
                            mpi_type_get_true_extent_x_,
                            mpi_type_get_true_extent_x__,
                            ompi_type_get_true_extent_x_f,
                            (MPI_Fint *datatype, MPI_Count *true_lb, MPI_Count *true_extent, MPI_Fint *ierr),
                            (datatype, true_lb, true_extent, ierr) )
-#else
-#define ompi_type_get_true_extent_x_f pompi_type_get_true_extent_x_f
-#endif
 #endif
 
 

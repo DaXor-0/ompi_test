@@ -16,6 +16,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This makefile.am does not stand on its own - it is included from ompi/Makefile.am
@@ -23,6 +24,5 @@
 headers += \
         class/ompi_seq_tracker.h
 
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         class/ompi_seq_tracker.c
-

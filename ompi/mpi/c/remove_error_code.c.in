@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -32,7 +33,7 @@
 #include "ompi/errhandler/errcode.h"
 #include "ompi/attribute/attribute.h"
 
-PROTOTYPE ERROR_CLASS remove_error_code(INT errorcode)
+PROTOTYPE ERROR_CLASS remove_error_code(ERROR_CODE errorcode)
 {
     int lastused;
     int rc;

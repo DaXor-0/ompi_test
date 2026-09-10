@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "opal_config.h"
@@ -663,10 +664,10 @@ int mca_btl_portals4_finalize(struct mca_btl_base_module_t *btl)
     OBJ_DESTRUCT(&portals4_btl->portals_frag_user);
     OBJ_DESTRUCT(&portals4_btl->portals_recv_blocks);
 
-    free(portals4_btl);
-
     OPAL_OUTPUT_VERBOSE((90, opal_btl_base_framework.framework_output,
                          "mca_btl_portals4_finalize NI %d: OK\n", portals4_btl->interface_num));
+
+    free(portals4_btl);
 
     return OPAL_SUCCESS;
 }
@@ -712,7 +713,7 @@ void mca_btl_portals4_free_module(mca_btl_portals4_module_t *portals4_btl)
         portals4_btl->recv_idx = (ptl_pt_index_t) ~0UL;
     }
 
-    if (PTL_EQ_NONE != portals4_btl->recv_eq_h) {
+    if (!PtlHandleIsEqual(portals4_btl->recv_eq_h, PTL_EQ_NONE)) {
         ret = PtlEQFree(portals4_btl->recv_eq_h);
         if (PTL_OK != ret)
             OPAL_OUTPUT_VERBOSE(

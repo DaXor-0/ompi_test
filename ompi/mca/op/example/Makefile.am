@@ -16,6 +16,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This is an example op component.  This Makefile.am is a typical
@@ -71,7 +72,7 @@ mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component)
 mca_op_example_la_SOURCES = $(component_sources)
 mca_op_example_la_LDFLAGS = -module -avoid-version
-mca_op_example_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+mca_op_example_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la
 
 # Specific information for static builds.
 #

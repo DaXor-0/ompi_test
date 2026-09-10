@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -67,8 +68,8 @@ PROTOTYPE ERROR_CLASS comm_get_name(COMM comm, STRING_OUT name, INT_OUT length)
        able to completely fit into MPI_MAX_OBJECT_NAME bytes (i.e.,
        name+\0). */
     if ( comm->c_flags & OMPI_COMM_NAMEISSET ) {
-        opal_string_copy(name, comm->c_name, MPI_MAX_OBJECT_NAME);
-        *length = (int) strlen(comm->c_name);
+        opal_string_copy(name, comm->c_name, @MPI_MAX_OBJECT_NAME@);
+        *length = (int) strlen(name);
     } else {
         name[0] = '\0';
         *length = 0;

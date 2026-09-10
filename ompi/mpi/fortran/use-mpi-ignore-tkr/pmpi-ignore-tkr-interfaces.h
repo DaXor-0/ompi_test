@@ -8,6 +8,7 @@
 ! Additional copyrights may follow
 !
 ! $HEADER$
+! SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 
 #define MPI_Abort PMPI_Abort
 #define MPI_Accumulate PMPI_Accumulate
@@ -264,7 +265,6 @@
 #define MPI_Status_f2f08 PMPI_Status_f2f08
 #define MPI_Status_f082f PMPI_Status_f082f
 #define MPI_Status_set_cancelled PMPI_Status_set_cancelled
-#define MPI_Status_set_elements PMPI_Status_set_elements
 #define MPI_Status_set_elements_x PMPI_Status_set_elements_x
 #define MPI_Test PMPI_Test
 #define MPI_Test_cancelled PMPI_Test_cancelled

@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -29,7 +30,7 @@
 #include "ompi/attribute/attribute.h"
 #include "ompi/win/win.h"
 
-PROTOTYPE ERROR_CLASS win_set_attr(WIN win, INT win_keyval, BUFFER_OUT attribute_val)
+PROTOTYPE ERROR_CLASS win_set_attr(WIN win, ATTR_KEY win_keyval, BUFFER_OUT attribute_val)
 {
     int ret;
 

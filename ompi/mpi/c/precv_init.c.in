@@ -24,6 +24,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -38,7 +39,7 @@
 #include "ompi/runtime/ompi_spc.h"
 
 PROTOTYPE ERROR_CLASS precv_init(BUFFER_OUT buf, INT partitions, PARTITIONED_COUNT count,
-                                 DATATYPE datatype, INT source, INT tag,
+                                 DATATYPE datatype, SOURCE source, TAG tag,
                                  COMM comm, INFO info, REQUEST_INOUT request)
 {
     int rc;

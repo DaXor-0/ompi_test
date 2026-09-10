@@ -4,11 +4,13 @@
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
  *
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 
@@ -60,3 +62,10 @@ int MPIX_Comm_agree(MPI_Comm comm, int *flag)
     OMPI_ERRHANDLER_RETURN(rc, comm, rc, FUNC_NAME);
 }
 
+#if OMPI_BUILD_MPI_PROFILING && !OPAL_HAVE_WEAK_ALIASES
+#undef MPIX_Comm_agree
+__opal_attribute_weak__ int MPIX_Comm_agree(MPI_Comm comm, int *flag)
+{
+    return PMPIX_Comm_agree(comm, flag);
+}
+#endif

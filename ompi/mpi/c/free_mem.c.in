@@ -14,11 +14,13 @@
  *                         and Technology (RIST). All rights reserved.
  * Copyright (c) 2024      Triad National Security, LLC. All rights
  *                         reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,8 +42,11 @@ PROTOTYPE ERROR_CLASS free_mem(BUFFER_OUT baseptr)
 
        If you call MPI_ALLOC_MEM with a size of 0, you get NULL
        back.  So don't consider a NULL==baseptr an error. */
-    if (NULL != baseptr && OMPI_SUCCESS != mca_mpool_base_free(baseptr)) {
-        return OMPI_ERRHANDLER_NOHANDLE_INVOKE(MPI_ERR_NO_MEM, FUNC_NAME);
+
+    if (NULL != baseptr) {
+        if (OMPI_SUCCESS != mca_mpool_base_free(baseptr)) {
+            return OMPI_ERRHANDLER_NOHANDLE_INVOKE(MPI_ERR_NO_MEM, FUNC_NAME);
+        }
     }
 
     return MPI_SUCCESS;

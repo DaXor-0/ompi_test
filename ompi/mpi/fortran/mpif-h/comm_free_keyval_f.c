@@ -17,6 +17,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -37,7 +38,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_FREE_KEYVAL,
                            pmpi_comm_free_keyval,
                            pmpi_comm_free_keyval_,
                            pmpi_comm_free_keyval__,
-                           pompi_comm_free_keyval_f,
+                           ompi_comm_free_keyval_f,
                            (MPI_Fint *comm_keyval, MPI_Fint *ierr),
                            (comm_keyval, ierr) )
 #endif
@@ -52,17 +53,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_COMM_FREE_KEYVAL,
 #pragma weak MPI_Comm_free_keyval_f = ompi_comm_free_keyval_f
 #pragma weak MPI_Comm_free_keyval_f08 = ompi_comm_free_keyval_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_COMM_FREE_KEYVAL,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_COMM_FREE_KEYVAL,
                            mpi_comm_free_keyval,
                            mpi_comm_free_keyval_,
                            mpi_comm_free_keyval__,
                            ompi_comm_free_keyval_f,
                            (MPI_Fint *comm_keyval, MPI_Fint *ierr),
                            (comm_keyval, ierr) )
-#else
-#define ompi_comm_free_keyval_f pompi_comm_free_keyval_f
-#endif
 #endif
 
 

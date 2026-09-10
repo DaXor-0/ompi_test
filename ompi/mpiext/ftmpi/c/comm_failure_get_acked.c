@@ -3,11 +3,13 @@
  * Copyright (c) 2015-2018 The University of Tennessee and The University
  *                         of Tennessee Research Foundation.  All rights
  *                         reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 
@@ -48,3 +50,10 @@ int MPIX_Comm_failure_get_acked(MPI_Comm comm, MPI_Group *failedgrp)
     return MPI_SUCCESS;
 }
 
+#if OMPI_BUILD_MPI_PROFILING && !OPAL_HAVE_WEAK_ALIASES
+#undef MPIX_Comm_failure_get_acked
+__opal_attribute_weak__ int MPIX_Comm_failure_get_acked(MPI_Comm comm, MPI_Group *failedgrp)
+{
+    return PMPIX_Comm_failure_get_acked(comm, failedgrp);
+}
+#endif

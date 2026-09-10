@@ -9,6 +9,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # OMPI_MPIEXT_ftmpi_CONFIG([action-if-found], [action-if-not-found])
@@ -16,7 +17,6 @@
 AC_DEFUN([OMPI_MPIEXT_ftmpi_CONFIG],[
     AC_CONFIG_FILES([ompi/mpiext/ftmpi/Makefile])
     AC_CONFIG_FILES([ompi/mpiext/ftmpi/c/Makefile])
-    AC_CONFIG_FILES([ompi/mpiext/ftmpi/c/profile/Makefile])
     AC_CONFIG_FILES([ompi/mpiext/ftmpi/mpif-h/Makefile])
     AC_CONFIG_FILES([ompi/mpiext/ftmpi/use-mpi/Makefile])
     AC_CONFIG_FILES([ompi/mpiext/ftmpi/use-mpi-f08/Makefile])

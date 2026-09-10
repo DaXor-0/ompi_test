@@ -22,6 +22,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -42,7 +43,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_SESSION_FINALIZE,
                             pmpi_session_finalize,
                             pmpi_session_finalize_,
                             pmpi_session_finalize__,
-                            pompi_session_finalize_f,
+                            ompi_session_finalize_f,
                             (MPI_Fint *session, MPI_Fint *ierr),
                             (session, ierr) )
 #endif
@@ -58,17 +59,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_SESSION_FINALIZE,
 #pragma weak MPI_Session_finalize_f = ompi_session_finalize_f
 #pragma weak MPI_Session_finalize_f08 = ompi_session_finalize_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_SESSION_FINALIZE,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_SESSION_FINALIZE,
                             mpi_session_finalize,
                             mpi_session_finalize_,
                             mpi_session_finalize__,
                             ompi_session_finalize_f,
                             (MPI_Fint *session, MPI_Fint *ierr),
                             (session, ierr) )
-#else
-#define ompi_session_finalize_f pompi_session_finalize_f
-#endif
 #endif
 
 void ompi_session_finalize_f(MPI_Fint *session, MPI_Fint *ierr)

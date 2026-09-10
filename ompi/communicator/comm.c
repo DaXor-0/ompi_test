@@ -29,14 +29,18 @@
  * Copyright (c) 2023-2025 Advanced Micro Devices, Inc. All rights reserved.
  * Copyright (c) 2025      BULL S.A.S. All rights reserved.
  * Copyright (c) 2026      NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
+ * Copyright (c) 2026      Musawer Ahmad Saqif.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -58,40 +62,119 @@
 
 #include "ompi/attribute/attribute.h"
 #include "ompi/communicator/communicator.h"
+#include "ompi/runtime/ompi_mpit_events.h"
+#include "ompi/communicator/comm_split_type.h"
 #include "ompi/mca/pml/pml.h"
 #include "ompi/request/request.h"
 #include "ompi/info/info_memkind.h"
 
 #include "ompi/runtime/params.h"
 
-struct ompi_comm_split_type_hw_guided_t {
-    const char *info_value;
-    int split_type;
-    bool use_for_unguided;
-};
-typedef struct ompi_comm_split_type_hw_guided_t ompi_comm_split_type_hw_guided_t;
-
 /*
  * The ompi_comm_split_unguided function uses this array to determine the next
  * topology to test for a MPI_COMM_TYPE_HW_UNGUIDED communicator split. Therefore,
  * the order in this array must be from largest topology class to smallest.
  */
-static const ompi_comm_split_type_hw_guided_t ompi_comm_split_type_hw_guided_support[] = {
+OMPI_DECLSPEC const ompi_comm_split_type_hw_guided_t ompi_comm_split_type_hw_guided_support[] = {
     {.info_value = "cluster",  .split_type = OMPI_COMM_TYPE_CLUSTER,  .use_for_unguided = false},
     {.info_value = "nvlink",   .split_type = OMPI_COMM_TYPE_NVLINK,   .use_for_unguided = false},
     {.info_value = "cu",       .split_type = OMPI_COMM_TYPE_CU,       .use_for_unguided = true},
-    {.info_value = "host",     .split_type = OMPI_COMM_TYPE_HOST,     .use_for_unguided = true},
+    {.info_value = "host", .hwloc_uri = "hwloc://Machine",
+     .hwloc_type = HWLOC_OBJ_MACHINE, .split_type = OMPI_COMM_TYPE_HOST,
+     .use_for_unguided = true},
     {.info_value = "mpi_shared_memory", .split_type = MPI_COMM_TYPE_SHARED, .use_for_unguided = true},
     {.info_value = "board",    .split_type = OMPI_COMM_TYPE_BOARD,    .use_for_unguided = true},
-    {.info_value = "numanode", .split_type = OMPI_COMM_TYPE_NUMA,     .use_for_unguided = true},
-    {.info_value = "socket",   .split_type = OMPI_COMM_TYPE_SOCKET,   .use_for_unguided = true},
-    {.info_value = "l3cache",  .split_type = OMPI_COMM_TYPE_L3CACHE,  .use_for_unguided = true},
-    {.info_value = "l2cache",  .split_type = OMPI_COMM_TYPE_L2CACHE,  .use_for_unguided = true},
-    {.info_value = "l1cache",  .split_type = OMPI_COMM_TYPE_L1CACHE,  .use_for_unguided = true},
-    {.info_value = "core",     .split_type = OMPI_COMM_TYPE_CORE,     .use_for_unguided = true},
-    {.info_value = "hwthread", .split_type = OMPI_COMM_TYPE_HWTHREAD, .use_for_unguided = true},
+    {.info_value = "numanode", .hwloc_uri = "hwloc://NUMANode",
+     .hwloc_type = HWLOC_OBJ_NUMANODE, .split_type = OMPI_COMM_TYPE_NUMA,
+     .use_for_unguided = true, .report_in_hw_resource_info = true},
+    {.info_value = "socket", .hwloc_uri = "hwloc://Package",
+     .hwloc_type = HWLOC_OBJ_PACKAGE, .split_type = OMPI_COMM_TYPE_SOCKET,
+     .use_for_unguided = true, .report_in_hw_resource_info = true},
+    {.info_value = "l3cache", .hwloc_uri = "hwloc://L3Cache",
+     .hwloc_type = HWLOC_OBJ_L3CACHE, .split_type = OMPI_COMM_TYPE_L3CACHE,
+     .use_for_unguided = true, .report_in_hw_resource_info = true},
+    {.info_value = "l2cache", .hwloc_uri = "hwloc://L2Cache",
+     .hwloc_type = HWLOC_OBJ_L2CACHE, .split_type = OMPI_COMM_TYPE_L2CACHE,
+     .use_for_unguided = true, .report_in_hw_resource_info = true},
+    {.info_value = "l1cache", .hwloc_uri = "hwloc://L1Cache",
+     .hwloc_type = HWLOC_OBJ_L1CACHE, .split_type = OMPI_COMM_TYPE_L1CACHE,
+     .use_for_unguided = true, .report_in_hw_resource_info = true},
+    {.info_value = "core", .hwloc_uri = "hwloc://Core", .hwloc_type = HWLOC_OBJ_CORE,
+     .split_type = OMPI_COMM_TYPE_CORE, .use_for_unguided = true,
+     .report_in_hw_resource_info = true},
+    {.info_value = "hwthread", .hwloc_uri = "hwloc://PU", .hwloc_type = HWLOC_OBJ_PU,
+     .split_type = OMPI_COMM_TYPE_HWTHREAD, .use_for_unguided = true,
+     .report_in_hw_resource_info = true},
     {.info_value = NULL},
 };
+
+enum {
+    OMPI_COMM_SPLIT_TYPE_HWLOC_UNKNOWN,
+    OMPI_COMM_SPLIT_TYPE_HWLOC_AVAILABLE,
+    OMPI_COMM_SPLIT_TYPE_HWLOC_UNAVAILABLE
+};
+
+static opal_mutex_t ompi_comm_split_type_hwloc_lock = OPAL_MUTEX_STATIC_INIT;
+static int ompi_comm_split_type_hwloc_status = OMPI_COMM_SPLIT_TYPE_HWLOC_UNKNOWN;
+
+bool ompi_comm_split_type_hwloc_topology_available(void)
+{
+    bool available;
+
+    /*
+     * Singleton processes may not receive a topology from PMIx. Serialize
+     * their first discovery so a second MPI_THREAD_MULTIPLE caller cannot
+     * observe opal_hwloc_topology while hwloc is still loading it.
+     */
+    opal_mutex_lock(&ompi_comm_split_type_hwloc_lock);
+    if (OMPI_COMM_SPLIT_TYPE_HWLOC_UNKNOWN == ompi_comm_split_type_hwloc_status) {
+        if (NULL != opal_hwloc_topology
+            || OPAL_SUCCESS == opal_hwloc_base_get_topology()) {
+            ompi_comm_split_type_hwloc_status = OMPI_COMM_SPLIT_TYPE_HWLOC_AVAILABLE;
+        } else {
+            ompi_comm_split_type_hwloc_status = OMPI_COMM_SPLIT_TYPE_HWLOC_UNAVAILABLE;
+        }
+    }
+    available = OMPI_COMM_SPLIT_TYPE_HWLOC_AVAILABLE == ompi_comm_split_type_hwloc_status;
+    opal_mutex_unlock(&ompi_comm_split_type_hwloc_lock);
+
+    return available;
+}
+
+int ompi_comm_split_type_hwloc_get_process_cpuset(hwloc_cpuset_t cpuset)
+{
+    if (!ompi_comm_split_type_hwloc_topology_available()
+        || 0 != hwloc_get_cpubind(opal_hwloc_topology, cpuset, HWLOC_CPUBIND_PROCESS)
+        || hwloc_bitmap_iszero(cpuset)) {
+        return OMPI_ERR_NOT_FOUND;
+    }
+
+    return OMPI_SUCCESS;
+}
+
+bool ompi_comm_split_type_hwloc_get_object(hwloc_const_cpuset_t cpuset,
+                                           hwloc_obj_type_t type,
+                                           hwloc_obj_t *resource_object)
+{
+    int count = hwloc_get_nbobjs_by_type(opal_hwloc_topology, type);
+    bool has_cpuset = false;
+
+    *resource_object = NULL;
+    for (int i = 0; i < count; ++i) {
+        hwloc_obj_t object = hwloc_get_obj_by_type(opal_hwloc_topology, type, i);
+        if (NULL == object || NULL == object->cpuset || hwloc_bitmap_iszero(object->cpuset)) {
+            continue;
+        }
+
+        has_cpuset = true;
+        if (hwloc_bitmap_isincluded(cpuset, object->cpuset)) {
+            *resource_object = object;
+            break;
+        }
+    }
+
+    return has_cpuset;
+}
 
 static const char * ompi_comm_split_type_to_str(int split_type) {
     for (int i = 0; NULL != ompi_comm_split_type_hw_guided_support[i].info_value; ++i) {
@@ -226,7 +309,10 @@ int ompi_comm_set_nb (ompi_communicator_t **ncomm, ompi_communicator_t *oldcomm,
     if (NULL == newcomm) {
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
-    newcomm->c_name = (char*) malloc (OPAL_MAX_OBJECT_NAME);
+    /* Allocate the name buffer at the MPI Forum ABI maximum so the standard-ABI
+     * entry points can store full-length names.  The traditional OMPI entry
+     * points still limit themselves to OPAL_MAX_OBJECT_NAME. */
+    newcomm->c_name = (char*) malloc (OMPI_MPI_MAX_OBJECT_NAME_ABI);
     if (NULL == newcomm->c_name) {
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
@@ -468,7 +554,7 @@ int ompi_comm_create_w_info (ompi_communicator_t *comm, ompi_group_t *group, opa
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMMUNICATOR %s CREATE FROM %s",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMMUNICATOR %s CREATE FROM %s",
 	     ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
 
     /* Activate the communicator and init coll-component */
@@ -693,7 +779,7 @@ int ompi_comm_split_with_info( ompi_communicator_t* comm, int color, int key,
     if ( inter ) {
         OBJ_RELEASE(local_group);
         if (NULL != newcomp->c_local_comm) {
-            snprintf(newcomp->c_local_comm->c_name, MPI_MAX_OBJECT_NAME,
+            snprintf(newcomp->c_local_comm->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI,
                      "MPI COMM %s SPLIT FROM %s", ompi_comm_print_cid (newcomp),
 		     ompi_comm_print_cid (comm));
         }
@@ -714,7 +800,7 @@ int ompi_comm_split_with_info( ompi_communicator_t* comm, int color, int key,
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s SPLIT FROM %s",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s SPLIT FROM %s",
 	     ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
 
     /* Copy info if there is one */
@@ -992,8 +1078,11 @@ static int ompi_comm_split_type_get_nvlink_domain(
     }
 
     rc = mca_base_var_get_value(var_id, &value, NULL, NULL);
-    if (OMPI_SUCCESS != rc || NULL == value) {
+    if (OMPI_SUCCESS != rc) {
         return rc;
+    }
+    if (NULL == value || NULL == *value) {
+        return OMPI_ERR_NOT_FOUND;
     }
 
     return ompi_comm_split_type_parse_nvlink_domain(*value, domain);
@@ -1312,7 +1401,7 @@ static int ompi_comm_split_type_core(ompi_communicator_t *comm,
         *newcomm = newcomp;
 
         /* Set name for debugging purposes */
-        snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s SPLIT_TYPE FROM %s",
+        snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s SPLIT_TYPE FROM %s",
         ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
         goto exit;
     }
@@ -1439,6 +1528,57 @@ static int ompi_comm_split_unguided(ompi_communicator_t *comm, int split_type, i
 }
 
 /*
+ * Split URI-guided processes by their resource instance at call time. The
+ * temporary shared-memory split makes hwloc logical indexes node-local, and
+ * the second split excludes a process when its live binding is unavailable or
+ * spans more than one instance of the requested resource.
+ */
+static int ompi_comm_split_type_hwloc(ompi_communicator_t *comm,
+                                      const ompi_comm_split_type_hw_guided_t *resource,
+                                      int original_split_type, int key,
+                                      bool need_split, bool no_undefined,
+                                      opal_info_t *info,
+                                      ompi_communicator_t **newcomm)
+{
+    ompi_communicator_t *node_comm = MPI_COMM_NULL;
+    if (NULL == resource) {
+        *newcomm = MPI_COMM_NULL;
+        return OMPI_SUCCESS;
+    }
+
+    int node_split_type = MPI_UNDEFINED == original_split_type
+                              ? MPI_UNDEFINED : MPI_COMM_TYPE_SHARED;
+    int rc = ompi_comm_split_type_core(comm, MPI_COMM_TYPE_SHARED,
+                                       node_split_type, 0, need_split, true,
+                                       no_undefined, info, &node_comm);
+    if (OMPI_SUCCESS != rc || MPI_COMM_NULL == node_comm) {
+        *newcomm = MPI_COMM_NULL;
+        return rc;
+    }
+
+    int color = MPI_UNDEFINED;
+    hwloc_cpuset_t cpuset = hwloc_bitmap_alloc();
+    if (NULL != cpuset
+        && OMPI_SUCCESS == ompi_comm_split_type_hwloc_get_process_cpuset(cpuset)) {
+        hwloc_obj_t object;
+        if (ompi_comm_split_type_hwloc_get_object(cpuset, resource->hwloc_type,
+                                                  &object)
+            && NULL != object && object->logical_index <= (unsigned) INT_MAX) {
+            color = (int) object->logical_index;
+        }
+    }
+
+    rc = ompi_comm_split(node_comm, color, key, newcomm, false);
+
+    if (NULL != cpuset) {
+        hwloc_bitmap_free(cpuset);
+    }
+    ompi_comm_free(&node_comm);
+
+    return rc;
+}
+
+/*
  * ompi_comm_split_type: Performs a communicator split. This function performs initial
  *                       processing to set up a  MPI_COMM_TYPE_HW_GUIDED split and
  *                       validation of input parameters.
@@ -1454,11 +1594,13 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
 {
     bool need_split = false, no_reorder = false, no_undefined = false;
     int inter;
-    int global_split_type, global_orig_split_type, ok[2], tmp[6];
+    int global_split_type, global_orig_split_type, global_hwloc_guided;
+    int ok[3], tmp[8];
     int rc;
     int orig_split_type = split_type;
     int flag;
     opal_cstring_t *value = NULL;
+    const ompi_comm_split_type_hw_guided_t *hwloc_resource = NULL;
 
     /* silence clang warning. newcomm should never be NULL */
     if (OPAL_UNLIKELY(NULL == newcomm)) {
@@ -1489,10 +1631,24 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
          */
         flag = 0;
         for (int i = 0; NULL != ompi_comm_split_type_hw_guided_support[i].info_value; ++i) {
+            bool legacy_match = false;
+            bool uri_match = false;
             if (0 == strncasecmp(value->string,
                                  ompi_comm_split_type_hw_guided_support[i].info_value,
                                  strlen(ompi_comm_split_type_hw_guided_support[i].info_value))) {
+               legacy_match = true;
+            }
+
+            if ((NULL != ompi_comm_split_type_hw_guided_support[i].hwloc_uri) &&
+                             (0 == strcasecmp(value->string,
+                                                ompi_comm_split_type_hw_guided_support[i].hwloc_uri))) {
+                uri_match = true;
+            }
+            if (legacy_match || uri_match) {
                 split_type = ompi_comm_split_type_hw_guided_support[i].split_type;
+                if (uri_match) {
+                    hwloc_resource = &ompi_comm_split_type_hw_guided_support[i];
+                }
                 flag = 1;
                 break;
             }
@@ -1517,8 +1673,10 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
      */
     tmp[4] = split_type;
     tmp[5] = -split_type;
+    tmp[6] = NULL != hwloc_resource;
+    tmp[7] = -tmp[6];
 
-    rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &tmp, 6, MPI_INT, MPI_MAX, comm,
+    rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &tmp, 8, MPI_INT, MPI_MAX, comm,
                                       comm->c_coll->coll_allreduce_module);
     if (OPAL_UNLIKELY(OMPI_SUCCESS != rc)) {
         return rc;
@@ -1526,13 +1684,16 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
 
     global_orig_split_type = tmp[0];
     global_split_type = tmp[4];
+    global_hwloc_guided = tmp[6];
 
-    if (tmp[0] != -tmp[1] || tmp[4] != -tmp[5] || inter) {
+    if (tmp[0] != -tmp[1] || tmp[4] != -tmp[5] || tmp[6] != -tmp[7] || inter) {
         /* at least one rank supplied a different split type check if our split_type is ok */
         ok[0] = (MPI_UNDEFINED == orig_split_type) || global_orig_split_type == orig_split_type;
         ok[1] = (MPI_UNDEFINED == orig_split_type) || global_split_type == split_type;
+        ok[2] = (MPI_UNDEFINED == orig_split_type)
+                || global_hwloc_guided == (NULL != hwloc_resource);
 
-        rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &ok, 2, MPI_INT, MPI_MIN, comm,
+        rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &ok, 3, MPI_INT, MPI_MIN, comm,
                                           comm->c_coll->coll_allreduce_module);
         if (OPAL_UNLIKELY(OMPI_SUCCESS != rc)) {
             return rc;
@@ -1540,14 +1701,14 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
 
         if (inter) {
             /* need an extra allreduce to ensure that all ranks have the same result */
-            rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &ok, 2, MPI_INT, MPI_MIN, comm,
+            rc = comm->c_coll->coll_allreduce (MPI_IN_PLACE, &ok, 3, MPI_INT, MPI_MIN, comm,
                                               comm->c_coll->coll_allreduce_module);
             if (OPAL_UNLIKELY(OMPI_SUCCESS != rc)) {
                 return rc;
             }
         }
 
-        if (OPAL_UNLIKELY(!ok[0] || !ok[1])) {
+        if (OPAL_UNLIKELY(!ok[0] || !ok[1] || !ok[2])) {
             if (0 == ompi_comm_rank(comm)) {
                 opal_info_get(info, "mpi_hw_resource_type", &value, &flag);
                 if (!flag) {
@@ -1577,7 +1738,22 @@ int ompi_comm_split_type (ompi_communicator_t *comm, int split_type, int key,
         return OMPI_SUCCESS;
     }
 
-    if (MPI_COMM_TYPE_HW_UNGUIDED == global_orig_split_type) {
+    if (global_hwloc_guided) {
+        if (NULL == hwloc_resource) {
+            for (int i = 0;
+                 NULL != ompi_comm_split_type_hw_guided_support[i].info_value; ++i) {
+                if (global_split_type
+                    == ompi_comm_split_type_hw_guided_support[i].split_type
+                    && NULL != ompi_comm_split_type_hw_guided_support[i].hwloc_uri) {
+                    hwloc_resource = &ompi_comm_split_type_hw_guided_support[i];
+                    break;
+                }
+            }
+        }
+        return ompi_comm_split_type_hwloc(comm, hwloc_resource,
+                                          orig_split_type, key, need_split,
+                                          no_undefined, info, newcomm);
+    } else if (MPI_COMM_TYPE_HW_UNGUIDED == global_orig_split_type) {
         /* Handle MPI_COMM_TYPE_HW_UNGUIDED communicator split. */
         return ompi_comm_split_unguided( comm, split_type,
                                          key, need_split, no_reorder,
@@ -1638,7 +1814,7 @@ int ompi_comm_dup_with_info ( ompi_communicator_t * comm, opal_info_t *info, omp
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s DUP FROM %s",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s DUP FROM %s",
 	     ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
 
     // Copy info if there is one.
@@ -1803,7 +1979,7 @@ static int ompi_comm_idup_with_info_activate (ompi_comm_request_t *request)
     }
 
     /* Set name for debugging purposes */
-    snprintf(context->newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s DUP FROM %s",
+    snprintf(context->newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s DUP FROM %s",
 	     ompi_comm_print_cid (context->newcomp), ompi_comm_print_cid (context->comm));
 
     /* activate communicator and init coll-module */
@@ -1857,7 +2033,7 @@ int ompi_comm_create_group (ompi_communicator_t *comm, ompi_group_t *group, int 
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s GROUP FROM %s",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s GROUP FROM %s",
 	     ompi_comm_print_cid (newcomp), ompi_comm_print_cid (comm));
 
     /* activate communicator and init coll-module */
@@ -1892,7 +2068,7 @@ int ompi_comm_create_from_group (ompi_group_t *group, const char *tag, opal_info
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI COMM %s FROM GROUP",
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI COMM %s FROM GROUP",
 	     ompi_comm_print_cid (newcomp));
 
     newcomp->super.s_info = OBJ_NEW(opal_info_t);
@@ -2194,7 +2370,7 @@ int ompi_intercomm_create_from_groups (ompi_group_t *local_group, int local_lead
     /*
      * append the pmix CONTEXT_ID obtained when creating the leader comm as discriminator
      */
-    opal_asprintf (&sub_tag, "%s-%ld", tag, data[1]);
+    opal_asprintf (&sub_tag, "%s-%" PRIu64, tag, data[1]);
     if (OPAL_UNLIKELY(NULL == sub_tag)) {
         return OMPI_ERR_OUT_OF_RESOURCE;
     }
@@ -2207,7 +2383,7 @@ int ompi_intercomm_create_from_groups (ompi_group_t *local_group, int local_lead
     }
 
     /* Set name for debugging purposes */
-    snprintf(newcomp->c_name, MPI_MAX_OBJECT_NAME, "MPI INTERCOMM %s FROM GROUP", ompi_comm_print_cid (newcomp));
+    snprintf(newcomp->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI INTERCOMM %s FROM GROUP", ompi_comm_print_cid (newcomp));
 
     // Copy info if there is one.
     newcomp->super.s_info = OBJ_NEW(opal_info_t);
@@ -2333,9 +2509,32 @@ int ompi_comm_set_name (ompi_communicator_t *comm, const char *name )
 {
 
     OPAL_THREAD_LOCK(&(comm->c_lock));
-    opal_string_copy(comm->c_name, name, MPI_MAX_OBJECT_NAME);
+    /* Bound the store by the full internal buffer size (the ABI maximum); the
+     * per-entry-point limit (OPAL_MAX_OBJECT_NAME for the OMPI bindings, the
+     * ABI maximum for the standard-ABI bindings) is applied by the caller. */
+    opal_string_copy(comm->c_name, name, OMPI_MPI_MAX_OBJECT_NAME_ABI);
     comm->c_flags |= OMPI_COMM_NAMEISSET;
     OPAL_THREAD_UNLOCK(&(comm->c_lock));
+
+    /* MPI_T: notify tools bound to THIS communicator that it was (re)named
+       (sec. 6.1).  Object-bound delivery means only registrations bound to this
+       communicator are invoked.  Raised after the lock is dropped so a callback
+       may re-enter MPI on the communicator (e.g. MPI_Comm_get_name to read the
+       new name, which the fixed payload does not carry). */
+    if (NULL != ompi_event_comm_name_set) {
+        struct {
+            uint64_t handle;
+        } payload;
+        /* XXX ABI (#13280): the MPI_Comm handle must match the registering
+           tool's ABI (ompi_mpit_callback_abi). */
+        if (OMPI_MPIT_ABI_OMPI == ompi_mpit_callback_abi) {
+            payload.handle = (uint64_t) (uintptr_t) comm;
+        } else {
+            /* TODO ABI (#13280): set the MPI Standard ABI handle value. */
+            payload.handle = 0;
+        }
+        mca_base_event_raise_bound(ompi_event_comm_name_set, NULL, comm, &payload);
+    }
 
     return OMPI_SUCCESS;
 }
@@ -2473,6 +2672,35 @@ int ompi_comm_free( ompi_communicator_t **comm )
             return ret;
         }
         OBJ_RELEASE((*comm)->c_keyhash);
+    }
+
+    /* Raise the MPI_T communicator-freed event now that teardown is committed
+       (the fallible attribute-delete step above has succeeded); the remaining
+       teardown cannot fail, and the context id is still valid until the final
+       release below.  Raising here (not at entry) keeps the freed event off the
+       attribute-delete failure path, so it pairs with the created event.  The
+       participation guard mirrors the created producer (raised in
+       ompi_comm_activate_complete only for ranks that join the new communicator),
+       so a rank that built a transient communicator it never joined -- e.g. an
+       MPI_UNDEFINED color in MPI_Comm_split, or a non-member of MPI_Comm_create's
+       group -- does not emit an unpaired freed.  No-op when no tool is listening
+       or the producer is disabled.  (comm and the communicator it points to are
+       already dereferenced above, so no NULL check here.) */
+    if (NULL != ompi_event_comm_freed && NULL != (*comm)->c_local_group
+        && MPI_UNDEFINED != (*comm)->c_local_group->grp_my_rank) {
+        struct {
+            uint64_t handle;
+        } payload;
+        /* XXX ABI: the MPI_Comm handle value must match the registering MPI_T
+           tool's ABI (ompi_mpit_callback_abi). */
+        if (OMPI_MPIT_ABI_OMPI == ompi_mpit_callback_abi) {
+            payload.handle = (uint64_t) (uintptr_t) *comm;
+        } else {
+            /* TODO ABI (#13280): set the MPI Standard ABI handle value for the
+               communicator *comm. */
+            payload.handle = 0;
+        }
+        mca_base_event_raise(ompi_event_comm_freed, NULL, &payload);
     }
 
     if ( OMPI_COMM_IS_INTER(*comm) ) {
@@ -2972,7 +3200,7 @@ static int ompi_comm_fill_rest(ompi_communicator_t *comm,
     /* there is no cid at this stage ... make this right and make edgars
      * code call this function and remove dupli cde
      */
-    snprintf (comm->c_name, MPI_MAX_OBJECT_NAME, "MPI_COMMUNICATOR %s",
+    snprintf (comm->c_name, OMPI_MPI_MAX_OBJECT_NAME_ABI, "MPI_COMMUNICATOR %s",
 	      ompi_comm_print_cid (comm));
 
     /* determine the cube dimensions */

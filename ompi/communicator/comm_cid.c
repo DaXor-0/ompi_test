@@ -27,11 +27,13 @@
  * Copyright (c) 2020-2026 Triad National Security, LLC. All rights
  *                         reserved.
  * Copyright (c) 2026      NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 
@@ -54,6 +56,7 @@
 #include "ompi/mca/coll/base/base.h"
 #include "ompi/request/request.h"
 #include "ompi/runtime/mpiruntime.h"
+#include "ompi/runtime/ompi_mpit_events.h"
 #include "ompi/runtime/ompi_rte.h"
 
 #include "pmix.h"
@@ -459,7 +462,7 @@ static int ompi_comm_ext_cid_new_block (ompi_communicator_t *newcomm, ompi_commu
     /* destruct the group */
     PMIX_INFO_CONSTRUCT(&tinfo);
     PMIX_INFO_LOAD(&tinfo, PMIX_TIMEOUT, &ompi_pmix_connect_timeout, PMIX_UINT32);
-    rc = PMIx_Group_destruct (tag, &tinfo, 0);
+    rc = PMIx_Group_destruct (tag, &tinfo, 1);
     PMIX_INFO_DESTRUCT(&tinfo);
     if(PMIX_SUCCESS != rc) {
         OPAL_OUTPUT_VERBOSE((10, ompi_comm_output, "PMIx_Group_destruct failed %s", PMIx_Error_string(rc)));
@@ -880,7 +883,7 @@ static inline void ompi_comm_set_disjointness_nb_complete(ompi_comm_cid_context_
 static int ompi_comm_activate_complete (ompi_comm_cid_context_t *context)
 {
     int ret;
-    ompi_communicator_t **newcomm = context->newcommp, *comm = context->comm;
+    ompi_communicator_t **newcomm = context->newcommp;
 
     /**
      * Determine the new communicator's disjointness based on
@@ -923,6 +926,34 @@ static int ompi_comm_activate_complete (ompi_comm_cid_context_t *context)
         OBJ_RELEASE(*newcomm);
         *newcomm = MPI_COMM_NULL;
         return ret;
+    }
+
+    /* Raise the MPI_T communicator-created event here, in the shared completion
+       reached by BOTH the blocking (ompi_comm_activate) and non-blocking
+       (ompi_comm_activate_nb, used by MPI_Comm_idup) creation paths, so every
+       new communicator a process joins is observed and pairs with its "freed"
+       event.  Only processes in the new communicator reach this point (others
+       returned above at the MPI_UNDEFINED check).  No-op when no tool is
+       listening or the producer is disabled.  (newcomm and the communicator it
+       points to are already dereferenced above, so no NULL check here.) */
+    if (NULL != ompi_event_comm_created) {
+        struct {
+            int32_t  size;
+            int32_t  pad;
+            uint64_t handle;
+        } payload;
+        payload.size = (int32_t) ompi_comm_size(*newcomm);
+        payload.pad = 0;
+        /* XXX ABI: the MPI_Comm handle value carried here must match the ABI of
+           the registering MPI_T tool (ompi_mpit_callback_abi). */
+        if (OMPI_MPIT_ABI_OMPI == ompi_mpit_callback_abi) {
+            payload.handle = (uint64_t) (uintptr_t) *newcomm;
+        } else {
+            /* TODO ABI (#13280): set the MPI Standard ABI handle value for the
+               communicator *newcomm. */
+            payload.handle = 0;
+        }
+        mca_base_event_raise(ompi_event_comm_created, NULL, &payload);
     }
 
     /* done */
@@ -1069,7 +1100,11 @@ int ompi_comm_get_remote_cid_from_pmix (ompi_communicator_t *comm, int dest, uin
     }
 
     if (val->type != PMIX_SIZE) {
-        OPAL_OUTPUT_VERBOSE((10, ompi_comm_output, "PMIx_Get failed for PMIX_GROUP_LOCAL_CID type mismatch - %s", PMIx_Value_string(val)));
+#if OPAL_ENABLE_DEBUG
+        char *val_string = PMIx_Value_string(val);
+        OPAL_OUTPUT_VERBOSE((10, ompi_comm_output, "PMIx_Get failed for PMIX_GROUP_LOCAL_CID type mismatch - %s", val_string));
+        free(val_string);
+#endif
         rc = OMPI_ERR_TYPE_MISMATCH;
         goto done;
     }

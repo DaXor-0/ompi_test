@@ -12,13 +12,14 @@
  * Copyright (c) 2009      Sun Microsystems, Inc. All rights reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2024      Triad National Security, LLC. All rights
+ * Copyright (c) 2024-2025 Triad National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -30,7 +31,7 @@
 #include "ompi/datatype/ompi_datatype.h"
 #include "ompi/datatype/ompi_datatype_internal.h"
 
-PROTOTYPE ERROR_CLASS type_match_size(INT typeclass, INT size, DATATYPE_OUT type)
+PROTOTYPE ERROR_CLASS type_match_size(TYPECLASS typeclass, INT size, DATATYPE_OUT type)
 {
     if (MPI_PARAM_CHECK) {
         OMPI_ERR_INIT_FINALIZE(FUNC_NAME);

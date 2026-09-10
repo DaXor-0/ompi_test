@@ -1,13 +1,17 @@
 # Copyright (c) 2024-2025 Triad National Security, LLC. All rights
 #                         reserved.
+# Copyright (c) 2026      Jeffrey M. Squyres.  All rights reserved.
 #
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 """Utility code for OMPI binding generation."""
 import textwrap
+
+from ompi_bindings import consts
 
 
 class OutputFile:
@@ -79,12 +83,12 @@ def fortran_name(fn_name, bigcount=False, needs_ts=False, gen_f90=False):
         name = f'MPI_{fn_name.capitalize()}{ts}'
     return name
 
-def fortran_f08_generic_interface_name(fn_name):
+def fortran_generic_interface_name(fn_name):
     """Produce the generic interface name from the base_name."""
     return f'MPI_{fn_name.capitalize()}'
 
 def break_param_lines_fortran(start, params, end):
-    """Break paramters for a fortran call onto multiple lines.
+    """Break parameters for a fortran call onto multiple lines.
 
     This is often necessary to avoid going over the max line length of 132
     characters.
@@ -116,16 +120,20 @@ def indent_lines(lines, tab, start=0):
     new_lines = []
     indent_count = start
     for line in lines:
-        # Closing bracket
-        if '}' in line:
-            indent_count -= 1
+        # is this a pragma line, if so do not indent
+        if (line and line[0] == '#'):
+            new_lines.append(f'{line}')
+        else:
+            # Closing bracket
+            if '}' in line:
+                indent_count -= 1
 
-        prefix = indent_count * tab
-        new_lines.append(f'{prefix}{line}')
+            prefix = indent_count * tab
+            new_lines.append(f'{prefix}{line}')
 
-        # Opening bracket
-        if '{' in line:
-            indent_count += 1
+            # Opening bracket
+            if '{' in line:
+                indent_count += 1
     return new_lines
 
 
@@ -133,13 +141,20 @@ def mpi_fn_name_from_base_fn_name(name):
     """Convert from a base name to the standard 'MPI_*' name."""
     return f'MPI_{name.capitalize()}'
 
+def mpit_fn_name_from_base_fn_name(name):
+    """Convert from a base name to the standard 'MPI_T_*' name."""
+    return f'MPI_T_{name}'
 
 def abi_internal_name(extname):
     """Convert from the ABI external name to an internal name.
 
-    Used to avoid conflicts with existing MPI names.
+    Used to avoid conflicts with existing MPI names.  This is the only
+    place the suffix should be applied; the ABI header generator
+    (c_header.py) uses consts.ABI_INTERNAL_SUFFIX for the cases where it
+    has to build the name by pattern substitution rather than from a
+    plain name.
     """
-    return f'{extname}_ABI_INTERNAL'
+    return f'{extname}{consts.ABI_INTERNAL_SUFFIX}'
 
 
 BIGCOUNT_TYPE_NAMES = [
@@ -159,7 +174,6 @@ BIGCOUNT_TYPE_NAMES = [
     'DATAREP_CONVERSION_FUNCTION',
 ]
 
-
 def prototype_has_bigcount(prototype):
     """Should this prototype have a bigcount version?"""
     return any(param.type_name in BIGCOUNT_TYPE_NAMES for param in prototype.params)
@@ -177,3 +191,23 @@ def prototype_has_buffers(prototype):
         return True
     else:
         return False
+
+USER_CALLBACK_NAMES = [
+    'COMM_COPY_ATTR_FUNCTION',
+    'COMM_DELETE_ATTR_FUNCTION',
+    'TYPE_COPY_ATTR_FUNCTION',
+    'TYPE_DELETE_ATTR_FUNCTION',
+    'WIN_COPY_ATTR_FUNCTION',
+    'WIN_DELETE_ATTR_FUNCTION',
+    'GREQUEST_QUERY_FUNCTION',
+    'GREQUEST_FREE_FUNCTION',
+    'GREQUEST_CANCEL_FUNCTION',
+]
+
+def prototype_needs_callback_wrappers(prototype):
+    """Should this prototype need a callback wrappers"""
+    return any(param.type_name in USER_CALLBACK_NAMES for param in prototype.params)
+
+def abi_tmp_name(name):
+    """Generate standardized tmp name for a supplied name"""
+    return f'{name}_tmp'

@@ -6,6 +6,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 monitoring_sources  = \
@@ -31,7 +32,7 @@ mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_osc_monitoring_la_SOURCES = $(monitoring_sources)
 mca_osc_monitoring_la_LDFLAGS = -module -avoid-version
-mca_osc_monitoring_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la \
+mca_osc_monitoring_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la \
 		$(OMPI_TOP_BUILDDIR)/ompi/mca/common/monitoring/libmca_common_monitoring.la
 
 noinst_LTLIBRARIES = $(component_noinst)

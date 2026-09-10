@@ -22,6 +22,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -36,7 +37,7 @@
 PROTOTYPE ERROR_CLASS type_create_struct(COUNT count,
                                          COUNT_ARRAY array_of_blocklengths,
                                          AINT_COUNT_ARRAY array_of_displacements,
-                                         DATATYPE_ARRAY array_of_types,
+                                         DATATYPE_ARRAY array_of_types:count,
                                          DATATYPE_OUT newtype)
 {
     int i, rc;

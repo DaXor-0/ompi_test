@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -101,12 +102,12 @@ int ompi_fortran_string_c2f(const char *cstr, char *fstr, int len)
     // trailing \0 into the last position in fstr.  This is not what
     // Fortran wants; overwrite that \0 with the actual last character
     // that will fit into fstr.
-    if (len <= strlen(cstr)) {
+    if (len <= (int) strlen(cstr)) {
         fstr[len - 1] = cstr[len - 1];
     } else {
         // Otherwise, pad the end of the resulting Fortran string with
         // spaces.
-        for (i = strlen(cstr); i < len; ++i) {
+        for (i = (int) strlen(cstr); i < len; ++i) {
             fstr[i] = ' ';
         }
     }

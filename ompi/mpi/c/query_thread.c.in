@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -27,7 +28,7 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/errhandler/errhandler.h"
 
-PROTOTYPE ERROR_CLASS query_thread(INT_OUT provided)
+PROTOTYPE ERROR_CLASS query_thread(TS_LEVEL_OUT provided)
 {
   if (MPI_PARAM_CHECK) {
     OMPI_ERR_INIT_FINALIZE(FUNC_NAME);

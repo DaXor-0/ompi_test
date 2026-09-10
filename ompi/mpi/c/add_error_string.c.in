@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -30,7 +31,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/errhandler/errcode.h"
 
-PROTOTYPE ERROR_CLASS add_error_string(INT errorcode, STRING string)
+PROTOTYPE ERROR_CLASS add_error_string(ERROR_CODE errorcode, STRING string)
 {
     int rc;
 
@@ -45,7 +46,7 @@ PROTOTYPE ERROR_CLASS add_error_string(INT errorcode, STRING string)
 	    return OMPI_ERRHANDLER_NOHANDLE_INVOKE(MPI_ERR_ARG,
 					  FUNC_NAME);
 
-	if ( MPI_MAX_ERROR_STRING < (strlen(string)+1) )
+	if ( @MPI_MAX_ERROR_STRING@ < (strlen(string)+1) )
 	    return OMPI_ERRHANDLER_NOHANDLE_INVOKE(MPI_ERR_ARG,
 					  FUNC_NAME);
     }

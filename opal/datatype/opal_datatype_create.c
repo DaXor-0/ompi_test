@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "opal_config.h"
@@ -55,7 +56,7 @@ static void opal_datatype_construct(opal_datatype_t *pData)
     pData->opt_desc.used = 0;
 
     pData->ptypes = NULL;
-    pData->loops = 0;
+    pData->stack_depth = 0;
 }
 
 static void opal_datatype_destruct(opal_datatype_t *datatype)

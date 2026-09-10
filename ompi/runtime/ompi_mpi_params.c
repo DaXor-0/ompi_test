@@ -30,6 +30,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -42,6 +43,7 @@
 #include "ompi/runtime/mpiruntime.h"
 #include "ompi/runtime/params.h"
 #include "ompi/runtime/ompi_rte.h"
+#include "ompi/runtime/ompi_mpit_events.h"
 
 #include "opal/mca/pmix/base/base.h"
 #include "opal/util/argv.h"
@@ -451,6 +453,10 @@ int ompi_mpi_register_params(void)
                                   "Verbosity level for communicator management subsystem",
                                   MCA_BASE_VAR_TYPE_INT, NULL, 0, MCA_BASE_VAR_FLAG_SETTABLE,
                                   OPAL_INFO_LVL_8, MCA_BASE_VAR_SCOPE_LOCAL, &ompi_comm_verbose_level);
+
+    /* Register the in-tree MPI_T event producers (idempotent / one-shot, so
+       it is harmless that this runs from every MCA-parameter path). */
+    ompi_mpit_register_events ();
 
     return OMPI_SUCCESS;
 }

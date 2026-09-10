@@ -7,6 +7,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 local_sources = \
@@ -33,7 +34,7 @@ AM_CPPFLAGS = $(coll_portals4_CPPFLAGS)
 mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_coll_portals4_la_SOURCES = $(local_sources)
-mca_coll_portals4_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la \
+mca_coll_portals4_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la \
 	$(coll_portals4_LIBS)
 mca_coll_portals4_la_LDFLAGS = -module -avoid-version $(coll_portals4_LDFLAGS)
 

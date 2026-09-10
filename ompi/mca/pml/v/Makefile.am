@@ -8,6 +8,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # Make the output library in this directory, and name it either
@@ -32,7 +33,7 @@ mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_pml_v_la_SOURCES = $(local_sources)
 mca_pml_v_la_LDFLAGS = -module -avoid-version
-mca_pml_v_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+mca_pml_v_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la
 
 noinst_LTLIBRARIES = $(component_noinst)
 libmca_pml_v_la_SOURCES = $(local_sources)

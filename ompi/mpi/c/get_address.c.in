@@ -14,13 +14,14 @@
  *                         reserved.
  * Copyright (c) 2015      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
- * Copyright (c) 2024      Triad National Security, LLC. All rights
+ * Copyright (c) 2024-2025 Triad National Security, LLC. All rights
  *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 
@@ -29,7 +30,7 @@
 #include "ompi/communicator/communicator.h"
 #include "ompi/errhandler/errhandler.h"
 
-PROTOTYPE ERROR_CLASS get_address(BUFFER location, AINT_OUT address)
+PROTOTYPE ERROR_CLASS get_address(VOID_CONST location, AINT_OUT address)
 {
     if( MPI_PARAM_CHECK ) {
       OMPI_ERR_INIT_FINALIZE(FUNC_NAME);

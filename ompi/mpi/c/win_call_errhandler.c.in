@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -28,7 +29,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/win/win.h"
 
-PROTOTYPE ERROR_CLASS win_call_errhandler(WIN win, INT errorcode)
+PROTOTYPE ERROR_CLASS win_call_errhandler(WIN win, ERROR_CODE errorcode)
 {
     if (MPI_PARAM_CHECK) {
         OMPI_ERR_INIT_FINALIZE(FUNC_NAME);

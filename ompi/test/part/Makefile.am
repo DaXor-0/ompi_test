@@ -6,6 +6,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # These are single-process partitioned communication tests.  Each calls
@@ -26,7 +27,9 @@ TESTS = $(check_PROGRAMS)
 common_ldflags = $(OMPI_PKG_CONFIG_LDFLAGS)
 common_ldadd = \
         $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la \
+        $(top_builddir)/ompi/libopen_mpi.la \
         $(top_builddir)/opal/lib@OPAL_LIB_NAME@.la
+
 
 parrived_null_inactive_SOURCES = parrived_null_inactive.c
 parrived_null_inactive_LDFLAGS = $(common_ldflags)

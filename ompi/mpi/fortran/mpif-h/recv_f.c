@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -41,7 +42,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_RECV,
                            pmpi_recv,
                            pmpi_recv_,
                            pmpi_recv__,
-                           pompi_recv_f,
+                           ompi_recv_f,
                            (char *buf, MPI_Fint *count, MPI_Fint *datatype, MPI_Fint *source, MPI_Fint *tag, MPI_Fint *comm, MPI_Fint *status, MPI_Fint *ierr),
                            (buf, count, datatype, source, tag, comm, status, ierr) )
 #endif
@@ -56,17 +57,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_RECV,
 #pragma weak MPI_Recv_f = ompi_recv_f
 #pragma weak MPI_Recv_f08 = ompi_recv_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_RECV,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_RECV,
                            mpi_recv,
                            mpi_recv_,
                            mpi_recv__,
                            ompi_recv_f,
                            (char *buf, MPI_Fint *count, MPI_Fint *datatype, MPI_Fint *source, MPI_Fint *tag, MPI_Fint *comm, MPI_Fint *status, MPI_Fint *ierr),
                            (buf, count, datatype, source, tag, comm, status, ierr) )
-#else
-#define ompi_recv_f pompi_recv_f
-#endif
 #endif
 
 

@@ -8,6 +8,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This is an aarch64 op component.  This Makefile.am is a typical
@@ -67,8 +68,8 @@ endif
 mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_op_aarch64_la_SOURCES = $(sources)
-mca_op_aarch64_la_LIBADD = $(specialized_op_libs)
-mca_op_aarch64_la_LDFLAGS = -module -avoid-version $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+mca_op_aarch64_la_LIBADD = $(specialized_op_libs) $(top_builddir)/ompi/libopen_mpi.la
+mca_op_aarch64_la_LDFLAGS = -module -avoid-version
 
 
 # Specific information for static builds.

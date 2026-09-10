@@ -8,6 +8,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 # This makefile.am does not stand on its own - it is included from ompi/Makefile.am
@@ -17,5 +18,5 @@ EXTRA_DIST += dpm/help-dpm.txt
 headers += \
         dpm/dpm.h
 
-lib@OMPI_LIBMPI_NAME@_la_SOURCES += \
+libopen_mpi_la_SOURCES += \
         dpm/dpm.c

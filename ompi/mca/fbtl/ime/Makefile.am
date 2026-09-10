@@ -5,6 +5,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 if MCA_BUILD_ompi_fbtl_ime_DSO
@@ -30,7 +31,7 @@ AM_CPPFLAGS = $(fbtl_ime_CPPFLAGS)
 mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_fbtl_ime_la_SOURCES = $(fbtl_ime_sources)
-mca_fbtl_ime_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la \
+mca_fbtl_ime_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la \
 	$(fbtl_ime_LIBS)
 mca_fbtl_ime_la_LDFLAGS = -module -avoid-version $(fbtl_ime_LDFLAGS)
 

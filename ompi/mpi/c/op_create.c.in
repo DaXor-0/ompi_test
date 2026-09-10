@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 #include "ompi_config.h"
 #include <stdio.h>
@@ -59,5 +60,11 @@ PROTOTYPE ERROR_CLASS op_create(USER_FUNCTION function, INT commute, OP_OUT op)
     if (NULL == *op) {
         err = MPI_ERR_INTERN;
     }
+#if OMPI_ABI_SRC
+    else {
+        (*op)->o_datatype_converter = (ompi_op_type_convert_to_abi_fn_t)ompi_convert_datatype_ompi_to_standard;
+    }
+#endif
+
     OMPI_ERRHANDLER_NOHANDLE_RETURN(err, MPI_ERR_INTERN, FUNC_NAME);
 }

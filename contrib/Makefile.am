@@ -17,11 +17,13 @@
 # Copyright (c) 2013      Intel Corporation.  All rights reserved.
 # Copyright (c) 2017      Amazon.com, Inc. or its affiliates.
 #                         All Rights reserved.
+# Copyright (c) 2026      NVIDIA Corporation.  All rights reserved.
 # $COPYRIGHT$
 #
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 amca_paramdir = $(AMCA_PARAM_SETS_DIR)
@@ -34,6 +36,16 @@ endif # WANT_FT_MPI
 EXTRA_DIST = \
         completion/mpirun.sh \
         completion/mpirun.zsh \
+        datatype/README.md \
+        datatype/build_to_self_release.py \
+        datatype/compare_pack_runs.py \
+        datatype/datatype_bench_common.py \
+        datatype/plot_to_self_comparison.py \
+        datatype/plot_to_self_suite_comparison.py \
+        datatype/run_pack_description_sweep.py \
+        datatype/run_to_self_comparison.py \
+        datatype/run_to_self_suite_comparison.py \
+        datatype/tune_datatype.py \
 	dist/make_dist_tarball \
 	dist/make-authors.pl \
 	dist/linux/openmpi.spec \

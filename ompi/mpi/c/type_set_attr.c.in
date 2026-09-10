@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -30,7 +31,7 @@
 #include "ompi/datatype/ompi_datatype.h"
 #include "ompi/memchecker.h"
 
-PROTOTYPE ERROR_CLASS type_set_attr (DATATYPE type, INT type_keyval,
+PROTOTYPE ERROR_CLASS type_set_attr (DATATYPE type, ATTR_KEY type_keyval,
                                      BUFFER_OUT attribute_val)
 {
     int ret;

@@ -23,6 +23,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -39,7 +40,7 @@ PROTOTYPE ERROR_CLASS type_create_subarray(INT ndims,
                                            COUNT_ARRAY size_array,
                                            COUNT_ARRAY subsize_array,
                                            COUNT_ARRAY start_array,
-                                           INT order,
+                                           SUBARRAY_ORDER  order,
                                            DATATYPE oldtype,
                                            DATATYPE_OUT newtype)
 {

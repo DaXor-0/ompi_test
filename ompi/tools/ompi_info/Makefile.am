@@ -22,6 +22,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 AM_CFLAGS = \
@@ -60,7 +61,7 @@ ompi_info_SOURCES = \
         ompi_info.c \
         param.c
 
-ompi_info_LDADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+ompi_info_LDADD = $(top_builddir)/ompi/libopen_mpi.la
 ompi_info_LDADD += $(top_builddir)/opal/lib@OPAL_LIB_NAME@.la
 
 distclean-local:

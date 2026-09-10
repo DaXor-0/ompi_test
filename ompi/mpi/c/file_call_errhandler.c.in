@@ -18,6 +18,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -28,7 +29,7 @@
 #include "ompi/errhandler/errhandler.h"
 #include "ompi/file/file.h"
 
-PROTOTYPE ERROR_CLASS file_call_errhandler(FILE fh, INT errorcode)
+PROTOTYPE ERROR_CLASS file_call_errhandler(FILE fh, ERROR_CODE errorcode)
 {
   /* Error checking */
 

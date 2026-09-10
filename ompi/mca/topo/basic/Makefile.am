@@ -11,6 +11,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 sources = \
@@ -37,7 +38,7 @@ mcacomponentdir = $(ompilibdir)
 mcacomponent_LTLIBRARIES = $(component)
 mca_topo_basic_la_SOURCES = $(component_sources)
 mca_topo_basic_la_LDFLAGS = -module -avoid-version
-mca_topo_basic_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la
+mca_topo_basic_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la
 
 noinst_LTLIBRARIES = $(lib)
 libmca_topo_basic_la_SOURCES = $(lib_sources)

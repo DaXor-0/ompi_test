@@ -14,6 +14,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 AC_DEFUN([OMPI_CONFIG_FILES],[
@@ -35,14 +36,18 @@ AC_DEFUN([OMPI_CONFIG_FILES],[
         ompi/test/general/Makefile
         ompi/test/monitoring/Makefile
         ompi/test/spc/Makefile
+        ompi/test/mpi-abi/Makefile
+        ompi/test/mpirun/Makefile
+        ompi/test/reexport/Makefile
+        ompi/test/bindings-generator/Makefile
 
         ompi/mpi/c/Makefile
         ompi/mpi/fortran/base/Makefile
         ompi/mpi/fortran/mpif-h/Makefile
-        ompi/mpi/fortran/mpif-h/profile/Makefile
         ompi/mpi/fortran/use-mpi/Makefile
         ompi/mpi/fortran/use-mpi/mpi-types.F90
         ompi/mpi/fortran/use-mpi-ignore-tkr/Makefile
+        ompi/mpi/fortran/use-mpi-ignore-tkr/base/Makefile
         ompi/mpi/fortran/use-mpi-ignore-tkr/mpi-ignore-tkr-interfaces.h
         ompi/mpi/fortran/use-mpi-ignore-tkr/mpi-ignore-tkr-file-interfaces.h
         ompi/mpi/fortran/use-mpi-ignore-tkr/mpi-ignore-tkr-removed-interfaces.h
@@ -58,11 +63,15 @@ AC_DEFUN([OMPI_CONFIG_FILES],[
         ompi/tools/ompi_info/Makefile
         ompi/tools/wrappers/Makefile
         ompi/tools/wrappers/mpicc-wrapper-data.txt
+        ompi/tools/wrappers/mpicc_abi-wrapper-data.txt
         ompi/tools/wrappers/mpic++-wrapper-data.txt
         ompi/tools/wrappers/mpifort-wrapper-data.txt
         ompi/tools/wrappers/ompi.pc
         ompi/tools/wrappers/ompi-c.pc
         ompi/tools/wrappers/ompi-cxx.pc
+        ompi/tools/wrappers/ompi-abi.pc
+        ompi/tools/wrappers/ompi-abi-c.pc
+        ompi/tools/wrappers/ompi-abi-cxx.pc
         ompi/tools/wrappers/ompi-fort.pc
         ompi/tools/mpisync/Makefile
         ompi/tools/mpirun/Makefile

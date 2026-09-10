@@ -20,6 +20,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -42,7 +43,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_ISCATTERV,
                             pmpi_iscatterv,
                             pmpi_iscatterv_,
                             pmpi_iscatterv__,
-                            pompi_iscatterv_f,
+                            ompi_iscatterv_f,
                             (char *sendbuf, MPI_Fint *sendcounts, MPI_Fint *displs, MPI_Fint *sendtype, char *recvbuf, MPI_Fint *recvcount, MPI_Fint *recvtype, MPI_Fint *root, MPI_Fint *comm, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm, request, ierr) )
 #endif
@@ -57,17 +58,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_ISCATTERV,
 #pragma weak MPI_Iscatterv_f = ompi_iscatterv_f
 #pragma weak MPI_Iscatterv_f08 = ompi_iscatterv_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_ISCATTERV,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_ISCATTERV,
                             mpi_iscatterv,
                             mpi_iscatterv_,
                             mpi_iscatterv__,
                             ompi_iscatterv_f,
                             (char *sendbuf, MPI_Fint *sendcounts, MPI_Fint *displs, MPI_Fint *sendtype, char *recvbuf, MPI_Fint *recvcount, MPI_Fint *recvtype, MPI_Fint *root, MPI_Fint *comm, MPI_Fint *request, MPI_Fint *ierr),
                             (sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm, request, ierr) )
-#else
-#define ompi_iscatterv_f pompi_iscatterv_f
-#endif
 #endif
 
 

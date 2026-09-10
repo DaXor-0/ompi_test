@@ -6,6 +6,7 @@
 # Additional copyrights may follow
 #
 # $HEADER$
+# SPDX-License-Identifier: BSD-3-Clause-Open-MPI
 #
 
 EXTRA_DIST =
@@ -34,7 +35,7 @@ endif
 mcacomponentdir = $(pkglibdir)
 mcacomponent_LTLIBRARIES = $(component_install)
 mca_osc_sm_la_SOURCES = $(sm_sources)
-mca_osc_sm_la_LIBADD = $(top_builddir)/ompi/lib@OMPI_LIBMPI_NAME@.la \
+mca_osc_sm_la_LIBADD = $(top_builddir)/ompi/libopen_mpi.la \
 	$(osc_sm_LIBS)
 mca_osc_sm_la_LDFLAGS = -module -avoid-version $(osc_sm_LDFLAGS)
 

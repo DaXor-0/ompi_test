@@ -19,6 +19,7 @@
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #include "ompi_config.h"
@@ -40,7 +41,7 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_STATUS_SET_SOURCE,
                            pmpi_status_set_source,
                            pmpi_status_set_source_,
                            pmpi_status_set_source__,
-                           pompi_status_set_source_f,
+                           ompi_status_set_source_f,
                            (MPI_Fint *status, MPI_Fint *source, MPI_Fint *ierr),
                            (status, source, ierr) )
 #endif
@@ -55,17 +56,13 @@ OMPI_GENERATE_F77_BINDINGS (PMPI_STATUS_SET_SOURCE,
 #pragma weak MPI_Status_set_source_f = ompi_status_set_source_f
 #pragma weak MPI_Status_set_source_f08 = ompi_status_set_source_f
 #else
-#if ! OMPI_BUILD_MPI_PROFILING
-OMPI_GENERATE_F77_BINDINGS (MPI_STATUS_SET_SOURCE,
+OMPI_GENERATE_WEAK_F77_BINDINGS (MPI_STATUS_SET_SOURCE,
                            mpi_status_set_source,
                            mpi_status_set_source_,
                            mpi_status_set_source__,
                            ompi_status_set_source_f,
                            (MPI_Fint *status, MPI_Fint *source, MPI_Fint *ierr),
                            (status, source, ierr) )
-#else
-#define ompi_status_set_source_f pompi_status_set_source_f
-#endif
 #endif
 
 

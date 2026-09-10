@@ -12,11 +12,14 @@
  * Copyright (c) 2010      Cisco Systems, Inc.  All rights reserved.
  * Copyright (c) 2018      Research Organization for Information Science
  *                         and Technology (RIST). All rights reserved.
+ * Copyright (c) 2026      Triad National Security, LLC. All rights
+ *                         reserved.
  * $COPYRIGHT$
  *
  * Additional copyrights may follow
  *
  * $HEADER$
+ * SPDX-License-Identifier: BSD-3-Clause-Open-MPI
  */
 
 #ifndef OMPI_C_BINDINGS_H
@@ -25,6 +28,8 @@
 #include "ompi_config.h"
 #include "mpi.h"
 #include "ompi/datatype/ompi_datatype.h"
+#include "ompi/datatype/ompi_datatype_internal.h"
+#include "ompi/info/info.h"
 
 BEGIN_C_DECLS
 
@@ -115,6 +120,15 @@ BEGIN_C_DECLS
        }  \
     } while (0)
 
+
+OMPI_HIDDEN int ompi_sendrecv(const void * sendbuf, size_t sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+                  void * recvbuf, size_t recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status *status);
+OMPI_HIDDEN int ompi_isendrecv(const void * sendbuf, size_t sendcount, MPI_Datatype sendtype, int dest, int sendtag,
+                   void * recvbuf, size_t recvcount, MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Request * request);
+OMPI_HIDDEN int ompi_abi_get_fortran_info(ompi_info_t **info);
+OMPI_HIDDEN int ompi_abi_set_fortran_info(ompi_info_t *info);
+OMPI_HIDDEN int ompi_abi_get_fortran_booleans(int logical_size, void *logical_true, void *logical_false, int *is_set);
+OMPI_HIDDEN int ompi_abi_set_fortran_booleans(int logical_size, void *logical_true, void *logical_false);
 
 END_C_DECLS
 
